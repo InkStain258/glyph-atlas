@@ -1,0 +1,12 @@
+本字体以「公有领域」（Public Domain）方式提供。
+
+依据（字体 name 表版权字段原文，未作改写）：
+    Public Domain
+
+字体：汇文明朝体 Huiwen Mincho
+来源：https://zhuanlan.zhihu.com/p/344103391
+
+公有领域意味着权利人放弃著作权财产权，任何人都可以复制、修改、分发、商用，
+无须署名，也无须注明是否改动。本项目仍在此如实署明来源，属于自愿，不是义务。
+
+参考：https://creativecommons.org/publicdomain/mark/1.0/

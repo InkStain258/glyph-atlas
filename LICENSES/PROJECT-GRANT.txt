@@ -1,0 +1,36 @@
+项目组授权声明 · PROJECT-GRANT
+================================
+
+一、字库
+  北師大說文小篆（BeiShiDaShuoWenXiaoZhuan）
+  字体文件 name 表（nameID 0）原始声明：
+      "Proprietary for Sinica, all right reserved."
+
+二、授权
+  本工具由北京师范大学文学院项目组制作与使用，仅用于古籍整理、字形比对与
+  学习研究，不作任何商业用途。经项目组确认，上述字库可用于本项目内部的
+  字形查询与教学研究。
+
+三、本项目对该字库所做的改动
+  1. 原文件 cmap 为 Big5 码位（platformID=3, platEncID=4），浏览器按 Unicode
+     查字无法命中；本项目逐码解码后重建 Unicode cmap（format 4 / format 12），
+     字形轮廓未作任何改动。
+  2. 修改版的 name 表 family 改为 "GlyphAtlas-beishida"，以示为转换版本；
+     nameID 0（版权声明）原样保留，未作篡改。
+  3. 为网页加载做了 subset 分片与 woff2 压缩。
+
+四、限制
+  · 不得将本字库的字体文件（原版或本项目的转换版）**单独**对外分发、转售，
+    不得用于任何商业产品，也不得单独打包为字体产品销售。
+  · 允许作为本工具（Glyph Atlas / 历代字形查询）的一部分公开分发，包括托管
+    在公开的静态站点上——前提是随附本授权说明与署名。
+  · 项目组以外的第三方若想单独使用该字库，请另行联系字库权利人取得授权。
+
+五、其他说明
+  本项目其余古文字层（甲骨、金文、楚文字、秦系简牍、传抄古文、小篆、隶书）
+  由 CC0 / CC BY 4.0 的 SVG 字形编译而来，见各层 NOTICE.md 与 fonts/README.md。
+六、公开部署确认（2026-11-03）
+  项目组（北京师范大学文学院）确认：本字库的转换版随本工具公开部署到
+  GitHub Pages，属于本授权允许的范围。据此本项目的 license.json 标记为
+  redistribution_allowed = true、commercial_use_allowed = false，
+  并在公开站点的版权页保留「項目組授權 / 需署名 / 禁商用」标识。

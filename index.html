@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>歷代字形查詢 · 古籍標注用</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">
+    <span class="seal">字</span>
+    <h1>歷代字形查詢</h1>
+    <span class="tag">甲骨 · 金文 · 楚簡 · 秦簡 · 傳抄古文 · 小篆 · 隸書 · 楷行草宋</span>
+  </a>
+  <nav>
+    <a href="index.html" class="on">查詢</a>
+    <a href="licenses.html" class="strong">字體與版權<span class="n" id="fontcount"></span></a>
+  </nav>
+</header>
+
+<div id="app">
+  <aside>
+    <div class="side-actions">
+      <button id="ancient-on">僅古文字</button>
+      <button id="all-on">全開</button>
+      <button id="all-off">清空</button>
+    </div>
+    <div id="layers"></div>
+  </aside>
+
+  <main>
+    <div class="modes">
+      <button class="mt on" data-mode="find">查 字</button>
+      <button class="mt" data-mode="parts">部件檢索</button>
+    </div>
+
+    <div id="findpane">
+      <div class="querybar">
+        <textarea id="q" placeholder="輸入單字，或粘貼整段古籍原文（自動拆成字表）" spellcheck="false"></textarea>
+        <button id="go">查 詢</button>
+      </div>
+      <div class="note">簡繁與異體自動歸一 · 點字形放大 · 角標數字切換異寫</div>
+
+      <div id="chips" class="chipbar" style="display:none"></div>
+      <div id="detail" class="detail"></div>
+      <div id="stage"></div>
+    </div>
+
+    <div id="partspane" hidden>
+      <div class="pbar">
+        <input id="pc" maxlength="4" placeholder="輸入部件，如 氵、扌、艹" spellcheck="false">
+        <button id="pgo">檢 索</button>
+      </div>
+      <div class="posrow" id="ppos"></div>
+      <div id="palette" class="palette"></div>
+      <div id="pres" class="pres"></div>
+    </div>
+
+    <footer>
+      <span>字形源 <a href="https://github.com/zhouyongh/hanzi-glyphs-svg" target="_blank" rel="noopener">hanzi-glyphs-svg</a>（CC0 / CC BY）＋ <span id="nf2"></span> 款歷史字庫（OFL / GPL / Arphic / 項目組授權；另有 1 款僅歸檔）</span>
+      <a href="licenses.html">字體與版權 →</a>
+    </footer>
+  </main>
+</div>
+
+<script src="data/fontcount.js"></script>
+<script src="data/layers.js"></script>
+<script src="data/variants.js"></script>
+<script src="app.js"></script>
+<script src="parts.js"></script>
+</body>
+</html>

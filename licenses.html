@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>字體與版權 · 歷代字形查詢</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <a class="brand" href="index.html">
+    <span class="seal">字</span>
+    <h1>歷代字形查詢</h1>
+    <span class="tag">字體與版權</span>
+  </a>
+  <nav>
+    <a href="index.html">查詢</a>
+    <a href="licenses.html" class="on strong">字體與版權</a>
+  </nav>
+</header>
+
+<main>
+  <p class="lede" id="lede"></p>
+  <div class="filters" id="filters"></div>
+  <div class="cards" id="cards"></div>
+
+  <div class="group-title">已排除的字庫 <span class="c" id="rej-count"></span></div>
+  <p class="lede" style="font-size:13px;margin:-6px 0 18px">
+    以下字库的许可与本项目「子集化 + 再分发」的方式不兼容，因此<strong>不下载、不打包、不参与任何构建</strong>，
+    仅留档说明理由，以免日后重复调研。
+  </p>
+  <div class="cards" id="rejected"></div>
+
+  <div class="group-title">資料來源 <span class="c">字形與結構</span></div>
+  <p class="lede ds-note">
+    <strong>漢字形源</strong> <a href="https://github.com/zhouyongh/hanzi-glyphs-svg" target="_blank" rel="noopener">hanzi-glyphs-svg</a>：甲骨至隸書七層 SVG，逐層许可不同（甲骨 JGW 1,203 条 CC BY 4.0、其余 CC0 1.0，各层见上方卡片）。<br>
+    <strong>部件結構</strong> <a href="https://babelstone.co.uk/CJK/IDS.TXT" target="_blank" rel="noopener">BabelStone IDS</a>（Andrew West，Unicode 16.0，97,680 条）：IDS 为事实描述，作者明确许可自由使用、无须署名，并放弃呈现格式版权；本项目只取「字 + IDS」两列重排为 JS 数组，未改动序列内容（原文摘录见 <code>data/ids/LICENSE-IDS.txt</code>）。
+  </p>
+
+  <footer>
+    <span>协议全文取自各上游原文，未作改写；每款字体在仓库里另有独立目录（<code>fonts/</code>）。</span>
+    <a href="index.html">← 回到查詢</a>
+  </footer>
+</main>
+
+<div id="reader" hidden>
+  <div class="rdoc">
+    <div class="rhead">
+      <span id="rtitle"></span>
+      <button id="rclose">關閉</button>
+    </div>
+    <div id="rbody"></div>
+  </div>
+</div>
+
+<script src="data/licenses.js"></script>
+<script src="licenses.js"></script>
+</body>
+</html>

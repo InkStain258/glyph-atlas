@@ -1,0 +1,1 @@
+window.GA_FONTCOUNT=36;

@@ -1,12 +1,22 @@
 # -*- coding: utf-8 -*-
-"""把 web/ 打包成可公开部署的静态站点目录（public/）。
+"""把工程源码（src/web 等）同步成仓库根目录下的可部署站点。
 
-只搬运行时需要的文件 + 许可文档 + 构建脚本；不搬 719 MB 的原始/子集字体库。
+布局约定：
+    E:/Github/glyph-atlas/         <- git 仓库根 = GitHub Pages 发布根
+    E:/Github/glyph-atlas/src/     <- 本项目工程源码（本脚本所在处）
+
+只同步站点运行所需的文件 + 许可文档 + 构建脚本；不搬 719 MB 的原始/子集字体库（在 src/fonts/）。
+删除时只清 `PUBLISHED` 名单里的条目，绝不碰 `.git/` 与 `src/`。
 """
 import io, json, os, shutil, sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT = os.path.join(ROOT, "public")
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../glyph-atlas/src
+OUT = os.path.dirname(ROOT)                                          # .../glyph-atlas
+
+PUBLISHED = [
+    "index.html", "licenses.html", "app.js", "parts.js", "licenses.js", "style.css",
+    "css", "fonts", "data", "docs", "scripts", "LICENSES", ".nojekyll", "README.md",
+]
 
 def copytree(src, dst):
     if not os.path.exists(src):
@@ -18,10 +28,23 @@ def copyfile(src, dst):
     os.makedirs(os.path.dirname(dst), exist_ok=True)
     shutil.copy2(src, dst)
 
+def clean():
+    for name in PUBLISHED:
+        p = os.path.join(OUT, name)
+        if os.path.isdir(p) and not os.path.islink(p):
+            shutil.rmtree(p)
+        elif os.path.exists(p):
+            os.remove(p)
+
+
 def main():
-    if os.path.isdir(OUT):
-        shutil.rmtree(OUT)
-    os.makedirs(OUT)
+    if not os.path.isdir(os.path.join(OUT, ".git")):
+        sys.exit("目标不是 git 仓库，拒绝覆盖: " + OUT)
+    if os.path.abspath(ROOT) == os.path.abspath(OUT):
+        sys.exit("ROOT 与 OUT 相同，布局异常")
+
+    print("清空发布物...", flush=True)
+    clean()
 
     web = os.path.join(ROOT, "web")
     for f in ("index.html", "licenses.html", "app.js", "parts.js", "licenses.js", "style.css"):
@@ -91,10 +114,13 @@ def main():
     total = 0
     n = 0
     for r, d, fs in os.walk(OUT):
+        parts = r.split(os.sep)
+        if ".git" in parts or "src" in parts:
+            continue
         for x in fs:
             total += os.path.getsize(os.path.join(r, x))
             n += 1
-    print("public/ = %.1f MB, %d files" % (total / 1048576, n))
+    print("站点已同步到 %s：%.1f MB / %d 个文件（不含 .git）" % (OUT, total / 1048576, n))
 
 if __name__ == "__main__":
     main()

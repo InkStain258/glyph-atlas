@@ -14,7 +14,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # .../glyph-
 OUT = os.path.dirname(ROOT)                                          # .../glyph-atlas
 
 PUBLISHED = [
-    "index.html", "licenses.html", "app.js", "parts.js", "licenses.js", "style.css",
+    "index.html", "licenses.html", "shape.html", "app.js", "parts.js", "licenses.js", "shape.js",
+    "style.css", "shape.css",
     "css", "fonts", "data", "docs", "scripts", "LICENSES", ".nojekyll", "README.md",
 ]
 
@@ -47,7 +48,7 @@ def main():
     clean()
 
     web = os.path.join(ROOT, "web")
-    for f in ("index.html", "licenses.html", "app.js", "parts.js", "licenses.js", "style.css"):
+    for f in ("index.html", "licenses.html", "shape.html", "app.js", "parts.js", "licenses.js", "shape.js", "style.css", "shape.css"):
         copyfile(os.path.join(web, f), os.path.join(OUT, f))
     for d in ("css", "fonts", "data"):
         copytree(os.path.join(web, d), os.path.join(OUT, d))

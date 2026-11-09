@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>以形查字 · 拓片工作台 · 歷代字形查詢</title>
+<meta name="description" content="認不出來的字，不必先猜。把拓片、印面或手繪的筆畫丟進來，在九個古文字層裡按形狀反查候選字。純前端，圖像不出本機。">
+<link rel="stylesheet" href="shape.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d93a2b'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='%23fff' font-family='serif'%3E形%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="aur a1"></div><div class="aur a2"></div><div class="aur a3"></div>
+  <div class="grain"></div><div class="vign"></div>
+</div>
+
+<nav class="nav">
+  <a class="brand" href="index.html">
+    <span class="stamp">形</span>
+    <span><h1>以形查字</h1></span>
+  </a>
+  <span class="sub">SHAPE&nbsp;LOOKUP</span>
+  <div class="links">
+    <a href="index.html">字形查詢</a>
+    <a href="index.html#parts">部件檢索</a>
+    <a href="shape.html" class="here">以形查字</a>
+    <a href="licenses.html">字體與版權</a>
+  </div>
+  <span class="live"><i class="dot"></i><span id="navstat">就緒</span></span>
+</nav>
+
+<div class="wrap">
+<div class="deck">
+
+  <!-- ============ 左栏：输入 · 预览 · 控制台（常驻） ============ -->
+  <aside class="rail">
+
+    <section class="card">
+      <header><i class="idx">1</i><h2>字形來源</h2><span class="hint" id="srcname">—</span></header>
+      <div class="body">
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="image/*">
+          <div>
+            <div class="di">拓</div>
+            <p>拖入拓片 / 印面截圖，或點擊選擇</p>
+            <small>亦可直接 Ctrl+V 貼上 · 圖像只在本機處理</small>
+          </div>
+        </label>
+        <div class="srcrow">
+          <button class="btn wide" id="bdraw">✎ 手繪筆畫</button>
+          <button class="btn wide" id="bpaste">⧉ 讀剪貼簿</button>
+        </div>
+        <div class="drawbox" id="drawbox">
+          <div class="drawwrap">
+            <canvas id="draw" width="480" height="480"></canvas>
+            <div class="grid"></div><div class="diag"></div>
+          </div>
+          <div class="srcrow">
+            <button class="btn" id="dclear">清空</button>
+            <button class="btn" id="dundo">回退一筆</button>
+            <span class="btn ghost" style="cursor:default">筆粗 <b id="bwv" style="color:var(--bone-lit)">14</b></span>
+          </div>
+          <input type="range" id="bw" min="4" max="34" step="1" value="14" aria-label="畫筆粗細">
+        </div>
+        <div class="samples" id="samples"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><i class="idx">2</i><h2>歸一化預覽</h2><span class="hint" id="pvhint">64×64 → 16×16</span></header>
+      <div class="body">
+        <div class="previews">
+          <div class="pv dark"><div class="cap"><span>二值掩膜</span><em id="pvmask">—</em></div><canvas id="cvmask" width="128" height="128"></canvas></div>
+          <div class="pv"><div class="cap"><span>形狀指紋</span><em id="pvfp">—</em></div><canvas id="cvfp" width="128" height="128"></canvas></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b id="stink">—</b><span>墨量 %</span></div>
+          <div class="stat"><b id="star">—</b><span>長寬比</span></div>
+          <div class="stat"><b id="stpx">—</b><span>筆畫像素</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><i class="idx">3</i><h2>控制台</h2><span class="hint" id="cfgflag">即時生效</span></header>
+      <div class="body">
+
+        <div class="ctl">
+          <div class="lab"><span>二值化閾值</span><b id="vthr">128</b></div>
+          <input type="range" id="thr" min="20" max="235" step="1" value="128">
+          <div class="ticks"><i>20</i><i>暗←→亮</i><i>235</i></div>
+        </div>
+
+        <label class="sw"><input type="checkbox" id="inv"><i class="track"></i><em>反相（白文↔朱文）</em></label>
+
+        <div class="ctl" style="margin-top:9px">
+          <div class="lab"><span>去噪（開運算）</span><b id="vden">1</b></div>
+          <input type="range" id="den" min="0" max="4" step="1" value="1">
+          <div class="ticks"><i>關</i><i>石花抑制</i><i>強</i></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>筆畫粗細</span><b id="vwt">0</b></div>
+          <input type="range" id="wt" min="-3" max="3" step="1" value="0">
+          <div class="ticks"><i>−3 細</i><i>原樣</i><i>+3 粗</i></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>旋轉校正</span><b id="vrot">0°</b></div>
+          <input type="range" id="rot" min="-20" max="20" step="1" value="0">
+          <div class="ticks"><i>−20°</i><i>0</i><i>+20°</i></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>邊框裁切</span><b id="vtrim">0%</b></div>
+          <input type="range" id="trim" min="0" max="18" step="1" value="0">
+          <div class="ticks"><i>0</i><i>剔除印框殘邊</i><i>18%</i></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>形狀 / 投影權重</span><b id="vw">70</b></div>
+          <input type="range" id="wgt" min="0" max="100" step="5" value="70">
+          <div class="ticks"><i>投影</i><i>平衡</i><i>網格</i></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>檢索圖層</span><b id="vlay">3</b></div>
+          <div class="chips" id="layers"></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>結果數</span></div>
+          <div class="step"><button id="nminus" aria-label="減少">−</button><b id="vnum">48</b><button id="nplus" aria-label="增加">+</button></div>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>候選排序</span></div>
+          <select id="sort">
+            <option value="sim">相似度 · 高→低</option>
+            <option value="era">時代 · 早→晚</option>
+            <option value="freq">常用字優先</option>
+            <option value="layer">按圖層分組</option>
+          </select>
+        </div>
+
+        <div class="ctl">
+          <div class="lab"><span>候選顯示</span></div>
+          <div class="seg" id="view"><button data-v="glyph" class="on">真實字形</button><button data-v="fp">指紋熱圖</button></div>
+        </div>
+
+        <div class="acts">
+          <button class="btn" id="reset">重設參數</button>
+          <button class="btn" id="rand">隨機樣本</button>
+          <button class="btn pri wide" id="run">重新檢索</button>
+        </div>
+      </div>
+    </section>
+  </aside>
+
+  <!-- ============ 右栏：结果 · 台账 ============ -->
+  <main class="main">
+
+    <section class="hero">
+      <div class="kicker">RUBBING&nbsp;·&nbsp;REVERSE&nbsp;LOOKUP</div>
+      <h2>認不出來的字，不必先猜</h2>
+      <p>古文字查詢的老問題是：你得先知道那是什麼字，才能查它長什麼樣。這裡把方向倒過來——把拓片、印面或手繪的筆畫丟進來，工具在九個古文字層里逐字比對形狀，給出帶出處的候選字。朱文白文可反相，石花可去噪，印框殘邊可裁掉。</p>
+      <div class="flow">
+        <i>柵格化 <b id="htotal">—</b> 字形</i>
+        <i>指紋 <b>146</b> B/字</i>
+        <i>網格 <b>16×16</b></i>
+        <i>投影 <b>32</b> 維</i>
+        <i>圖像 <b>不出本機</b></i>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <span class="sum">候選 <b id="rcount">0</b> <em id="rmeta">等待輸入</em></span>
+      <span class="pill" id="rtime">—</span>
+      <span class="pill" id="rsel" hidden>已選 0</span>
+      <div class="sp">
+        <select id="markfilter" style="min-width:118px">
+          <option value="all">全部候選</option>
+          <option value="unmarked">未標記</option>
+          <option value="yes">已確認</option>
+          <option value="maybe">存疑</option>
+          <option value="no">已排除</option>
+        </select>
+        <button class="btn" id="bulkyes" disabled>批量確認</button>
+        <button class="btn" id="bulkno" disabled>批量排除</button>
+        <button class="btn" id="expjson">匯出 JSON</button>
+        <button class="btn" id="expcsv">匯出 CSV</button>
+      </div>
+    </div>
+    <div class="progress" id="prog"><i></i></div>
+
+    <div class="results" id="results"></div>
+
+    <section class="ledger">
+      <header>
+        <h2>標注台賬</h2>
+        <span class="pill" id="lcount">0 條</span>
+        <div class="sp">
+          <button class="btn" id="lexp">匯出台賬</button>
+          <button class="btn" id="lclear">清空</button>
+        </div>
+      </header>
+      <div id="lbody"><div class="lempty">尚未標注。點候選字 → 在詳情裡確認或排除，記錄會留在本機。</div></div>
+    </section>
+  </main>
+</div>
+
+<footer class="foot">
+  <span>以形查字 · 歷代字形查詢</span>
+  <span>字形來自 <a href="licenses.html">hanzi-glyphs-svg（CC0 / CC BY）與各開源字庫</a></span>
+  <span>指紋由本項目柵格化生成，圖像處理全程在瀏覽器內完成</span>
+  <a href="docs/feasibility.md" style="margin-left:auto">技術報告</a>
+</footer>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <header>
+    <span class="t" id="dtitle">候選</span>
+    <span class="pill" id="dsim">—</span>
+    <button class="x" id="dclose" aria-label="關閉">✕</button>
+  </header>
+  <div class="scroll">
+    <div class="dglyph">
+      <div class="dpane"><div class="cap">真實字形</div><div class="in"><span class="ch" id="dch">—</span></div></div>
+      <div class="dpane"><div class="cap">匹配指紋</div><div class="in"><canvas id="dfp" width="160" height="160"></canvas></div></div>
+    </div>
+    <dl class="dkv">
+      <dt>字頭</dt><dd id="dkchar">—</dd>
+      <dt>碼位</dt><dd class="mono" id="dkcp">—</dd>
+      <dt>書體</dt><dd id="dklayer">—</dd>
+      <dt>時代</dt><dd id="dkera">—</dd>
+      <dt>出處</dt><dd id="dksrc">—</dd>
+      <dt>異寫</dt><dd id="dkvar">—</dd>
+    </dl>
+    <h3 class="dsec">相似度分解</h3>
+    <div class="bars">
+      <div class="brow"><span>網格形狀</span><div class="tr"><i id="bgrid" style="background:var(--grad-seal)"></i></div><b id="bgridv">—</b></div>
+      <div class="brow"><span>筆畫投影</span><div class="tr"><i id="bproj" style="background:var(--grad-patina)"></i></div><b id="bprojv">—</b></div>
+      <div class="brow"><span>長寬比</span><div class="tr"><i id="baspect" style="background:linear-gradient(90deg,var(--bone),var(--warn))"></i></div><b id="baspectv">—</b></div>
+    </div>
+    <h3 class="dsec">標注</h3>
+    <div class="markrow">
+      <button class="mk yes" data-m="yes">✓ 確認為此字</button>
+      <button class="mk maybe" data-m="maybe">? 存疑待考</button>
+      <button class="mk no" data-m="no">✕ 排除</button>
+    </div>
+    <textarea class="dnote" id="dnote" placeholder="考釋筆記：出处、上下文、存疑理由……（自動存本機）"></textarea>
+    <div class="dlinks">
+      <a class="btn pri" id="dopen" href="index.html">在字形查询中打开 →</a>
+      <button class="btn" id="dcopy">複製字頭</button>
+      <button class="btn" id="dnext">下一個候選 ↓</button>
+    </div>
+  </div>
+</aside>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="data/layers.js"></script>
+<script src="data/shape/index.js"></script>
+<script src="data/shape/samples.js"></script>
+<script src="shape.js"></script>
+</body>
+</html>

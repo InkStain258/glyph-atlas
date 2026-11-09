@@ -407,3 +407,21 @@ body:has(#reader:not([hidden])) { overflow: hidden; }
   position: absolute; right: 4px; bottom: 2px;
   font-size: 10px; color: var(--accent-2); font-variant-numeric: tabular-nums;
 }
+
+/* 出处标签 + 以形反查入口（查询页详情） */
+.kv dd .tag {
+  display: inline-block; margin: 0 5px 4px 0; padding: 1px 7px;
+  border: 1px solid var(--rule); border-radius: 3px;
+  background: var(--paper-2); color: var(--ink-2);
+  font-size: 12px; line-height: 1.7; white-space: nowrap;
+}
+.xjump { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.xlink {
+  display: inline-block; padding: 6px 13px; border-radius: var(--radius);
+  border: 1px solid var(--accent); background: var(--accent); color: #fff8f2;
+  font-size: 13px; letter-spacing: .04em; text-decoration: none;
+  transition: background .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+.xlink:hover { background: #b83323; box-shadow: 0 6px 18px -8px rgba(158, 43, 30, .8); transform: translateY(-1px); }
+.xlink:active { transform: none; }
+.xhint { color: var(--ink-3); font-size: 12.5px; }

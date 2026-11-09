@@ -286,6 +286,15 @@
     }
     info.appendChild(kv);
 
+    /* 反向入口：拿着这个字的字形去「以形查字」里找形近字 */
+    var jump = el('div', 'xjump');
+    var ja = el('a', 'xlink', '以形反查此字 →');
+    ja.href = 'shape.html?ch=' + encodeURIComponent(ch);
+    ja.title = '用「' + ch + '」的字形當樣本，在古文字層裡找形近字';
+    jump.appendChild(ja);
+    jump.appendChild(el('span', 'xhint', '認不出手裡的拓片？反過來查'));
+    info.appendChild(jump);
+
     /* 异写 */
     if (L && fm.length > 1) {
       var vbox = el('div', 'variants');
@@ -435,6 +444,10 @@
     var seed = new URLSearchParams(location.search).get('q');
     $('#q').value = seed || '永受嘉福長樂未央';
     run(true);
+    if (location.hash === '#parts') {
+      var t = document.querySelector('.mt[data-mode="parts"]');
+      if (t) t.click();
+    }
   }
 
   /* ---------- 給部件檢索用的接口 ---------- */

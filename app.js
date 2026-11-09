@@ -21,8 +21,13 @@
     layers: {},       // 字 -> { layerId: matchedChar }
     focusLayer: null,
     focusVariant: 0,
-    preview: 'ink'    // ink | zhuwen | baiwen
+    preview: 'ink',   // ink | zhuwen | baiwen
+    cellSize: 'm'     // s | m | l —— 字形对照图的大小
   };
+  try {
+    var cs = localStorage.getItem('ga.cellsize');
+    if (cs === 's' || cs === 'm' || cs === 'l') state.cellSize = cs;
+  } catch (e) {}
 
   var $ = function (s, r) { return (r || document).querySelector(s); };
   function el(tag, cls, txt) {
@@ -160,6 +165,8 @@
         box.appendChild(row);
       });
     });
+    var stc = $('#stcount');
+    if (stc) stc.textContent = state.enabled.size + ' / ' + LAYERS.length;
   }
 
   function formatCount(n) {
@@ -346,10 +353,26 @@
     var avail = enabledLayers().filter(function (L) { return hit[L.id] && hit[L.id].length; });
     var missing = enabledLayers().filter(function (L) { return !hit[L.id]; });
 
-    stage.appendChild(el('div', 'sec-title', '字形对照 · ' + ch + '（' + avail.length + ' / ' +
+    var head = el('div', 'sec-title');
+    head.appendChild(el('span', null, '字形对照 · ' + ch + '（' + avail.length + ' / ' +
       enabledLayers().length + ' 层）'));
+    /* 字形大小：对照时看小图，考释时看大图。记在本机。 */
+    var sizes = el('div', 'msize');
+    [['s', '小'], ['m', '中'], ['l', '大']].forEach(function (p) {
+      var b = el('button', state.cellSize === p[0] ? 'on' : '', p[1]);
+      b.title = '字形' + p[1] + '圖';
+      b.onclick = function () {
+        state.cellSize = p[0];
+        try { localStorage.setItem('ga.cellsize', p[0]); } catch (e) {}
+        renderMatrix();
+      };
+      sizes.appendChild(b);
+    });
+    head.appendChild(sizes);
+    stage.appendChild(head);
 
     var grid = el('div', 'matrix');
+    grid.dataset.size = state.cellSize;
     avail.forEach(function (L) {
       var fm2 = hit[L.id];
       var cell = el('div', 'cell' + (L.id === state.focusLayer ? ' sel' : ''));
@@ -420,6 +443,15 @@
     if ($('#nf2')) $('#nf2').textContent = nm;
 
     renderSidebar();
+
+    /* 窄屏：36 层会把查询框顶到首屏之外，默认收起，点标题展开 */
+    var st = $('#sidetoggle'), side = $('#side');
+    if (st && side) {
+      st.onclick = function () {
+        var open = side.classList.toggle('open');
+        st.setAttribute('aria-expanded', open ? 'true' : 'false');
+      };
+    }
 
     $('#go').onclick = function () { run(true); };
     var tm = null;

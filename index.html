@@ -22,7 +22,12 @@
 </header>
 
 <div id="app">
-  <aside>
+  <aside id="side">
+    <button id="sidetoggle" aria-expanded="false" aria-controls="layers">
+      <span class="st-t">檢索層</span>
+      <span class="st-n" id="stcount"></span>
+      <span class="st-caret" aria-hidden="true">▾</span>
+    </button>
     <div class="side-actions">
       <button id="ancient-on">僅古文字</button>
       <button id="all-on">全開</button>

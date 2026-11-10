@@ -46,7 +46,7 @@ GEN = os.environ.get("GA_GEN") or os.path.join(FONTS, "gen")
 RAW = os.path.join(FONTS, "raw")
 QUAR = os.path.join(FONTS, "quarantine")
 
-TODAY = "2026-11-03"
+TODAY = __import__("datetime").date.today().isoformat()
 UP_STREAM = "https://github.com/zhouyongh/hanzi-glyphs-svg"
 
 # ---------------------------------------------------------------- 古文字层

@@ -67,6 +67,7 @@ WHITELIST = {
     "FREE-COMMERCIAL-WRITTEN": "明确书面免费商用（自定义）",
     "Arphic-PL-1.0": "Arphic Public License（1999 原始版：允许商用/修改/再分发）",
     "GPL-3.0+FE": "GNU GPL v3 + 字体嵌入例外（Fandol）",
+    "GPL-2.0": "GNU GPL v2（王漢宗自由字型，无字体例外；子集化/转换须同许可分发）",
 }
 
 # 明确不允许（仅用于给出可读的拒绝原因）
@@ -441,7 +442,10 @@ def classify_license(names):
     if "arphic public license" in low:
         return "Arphic-PL-1.0", _snippet(blob, ("ARPHIC PUBLIC LICENSE", "Arphic Public License"))
     if "gnu general public license" in low or "gnu.org/licenses" in low or "gpl" in low:
-        return "GPL-3.0+FE", _snippet(blob, ("GNU GENERAL PUBLIC LICENSE", "gnu.org/licenses", "GPL"))
+        snippet = _snippet(blob, ("GNU GENERAL PUBLIC LICENSE", "gnu.org/licenses", "GPL"))
+        if "version 2" in low and "version 3" not in low:
+            return "GPL-2.0", snippet
+        return "GPL-3.0+FE", snippet
     if "ipa font license" in low or "information-technology promotion agency" in low or "opensource.org/licenses/ipa" in low:
         return "IPA-1.0", _snippet(blob, ("IPA", "Information-technology"))
     if "禁止改作" in blob or "cc-by-nd" in low or "no derivatives" in low:
@@ -728,9 +732,10 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
     detected, _ = classify_license(names)
     declared = meta.get("license_spdx", "UNKNOWN")
 
-    if declared not in WHITELIST:
+    status_declared = meta.get("status", "shipped")
+    if declared not in WHITELIST and status_declared != "quarantine":
         problems.append(f"incoming/{folder.name} 声明许可 {declared} 不在白名单，必须隔离")
-    if detected == "PROPRIETARY" or detected in ("CC-BY-ND-3.0", "IPA-1.0"):
+    if (detected == "PROPRIETARY" or detected in ("CC-BY-ND-3.0", "IPA-1.0")) and status_declared != "quarantine":
         problems.append(f"incoming/{folder.name} name 表判定为 {detected}，与声明 {declared} 冲突")
 
     fmt = "TTC/OTC" if ttc_count > 1 else path.suffix.lstrip(".").upper()
@@ -741,7 +746,7 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
         problems.append(f"incoming/{folder.name} 的 license.json 记 GB2312 一级 {meta['gb2312_l1']}，实测 {l1}")
     rec = {
         "id": meta["id"],
-        "status": "shipped",
+        "status": meta.get("status", "shipped"),
         "name_zh": meta["name_zh"],
         "name_en": meta["name_en"],
         "era": meta["era"],
@@ -797,6 +802,8 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
         rec["encoding_note"] += " GB2312 一级命中 <1500 字，标为 supplemental（仅作字形展示/回退，不作正文）。"
     if declared != detected and detected != "UNKNOWN":
         rec["license_mismatch"] = f"license.json 声明 {declared}，name 表判定 {detected}"
+    if rec["status"] == "quarantine":
+        rec["quarantine_reason"] = meta.get("reject_reason") or meta.get("quarantine_reason", "")
 
     if measure_woff2:
         try:
@@ -864,6 +871,20 @@ def main():
             problems.append(f"incoming/ 下有目录缺少 license.json：{', '.join(missing_json)}")
     else:
         problems.append("缺少 fonts/incoming/ 目录")
+
+    # ---------------- fonts/quarantine/<id>/ 四件套（新增隔离字体） ----------------
+    qdir = ROOT / "fonts" / "quarantine"
+    if qdir.exists():
+        scanned = {r["id"] for r in records}
+        for folder in sorted(p for p in qdir.iterdir()
+                             if p.is_dir() and (p / "license.json").exists()):
+            if folder.name in scanned:
+                continue
+            if not any(p.suffix.lower() in FONT_SUFFIXES for p in folder.iterdir()):
+                continue  # 旧隔离目录只留 LICENSE/NOTICE 档，无字体文件
+            rec = build_incoming_record(folder, cache, not args.no_woff2, problems)
+            if rec:
+                records.append(rec)
 
     # 预设条目：旧条目按原样保留（用户要求“不删改已有 11 条”）——
     # 仅当磁盘文件 sha256 变化时才用新记录替换，并显式报 problem。

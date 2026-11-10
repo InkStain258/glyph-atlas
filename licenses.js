@@ -16,7 +16,7 @@
     return n;
   }
 
-  var BADGE_ALIAS = { 'PROPRIETARY': '專有授權', 'UNKNOWN': '許可不明' };
+  var BADGE_ALIAS = { 'PROPRIETARY': '專有授權', 'UNKNOWN': '許可不明', 'UNVERIFIED': '許可待核' };
 
   var LIC_LABEL = {
     'OFL-1.1': 'SIL OFL 1.1',
@@ -26,6 +26,7 @@
     'PROJECT-GRANT': '項目組授權',
     'Arphic-PL-1.0': '文鼎公共許可',
     'GPL-3.0+FE': 'GPL + 字體例外',
+    'GPL-2.0': 'GPL v2',
     'IPA-1.0': 'IPA 許可'
   };
 
@@ -36,13 +37,25 @@
 
   function lede() {
     var c = D.counts || {};
+    var sh = shipped();
+    var FREE = ['OFL-1.1', 'CC0-1.0', 'CC-BY-4.0', 'PD', 'GPL-2.0', 'GPL-3.0+FE', 'Arphic-PL-1.0'];
+    var free = sh.filter(function (f) { return FREE.indexOf(f.license_spdx) >= 0; }).length;
+    var grant = sh.filter(function (f) { return FREE.indexOf(f.license_spdx) < 0; });
+    var grantLic = {};
+    grant.forEach(function (f) { grantLic[f.license_spdx] = (grantLic[f.license_spdx] || 0) + 1; });
     var el = $('#lede');
     el.innerHTML = '';
-    el.appendChild(h('b', null, '共 ' + (c.shipped || 0) + ' 款字體，全部開源合規。'));
+    el.appendChild(h('b', null, '共 ' + (c.shipped || 0) + ' 款字體，許可全部可查、可合法使用。'));
     el.appendChild(document.createTextNode(
-      ' 其中古文字字形源 ' + (c.ancient || 0) + ' 款、歷代書體字庫 ' + (c.modern || 0) +
-      ' 款：34 款為 SIL OFL 1.1 / CC0 1.0 / CC BY 4.0 / 公有領域 / GPL + 字體例外 / 文鼎公共許可，可商用、可修改、可再分發；' +
-      ' 僅「說文小篆」1 款為項目組授權（需署名、禁商用；可隨本工具公開分發），卡片上單獨標注。' +
+      ' 其中古文字字形源 ' + (c.ancient || 0) + ' 款、書法與手寫 ' + (c.calligraphy || 0) +
+      ' 款、刻本與活字 ' + (c.print || 0) + ' 款、現代排版 ' + (c.modern || 0) + ' 款。' +
+      ' ' + free + ' 款為 SIL OFL 1.1 / CC0 1.0 / CC BY 4.0 / 公有領域 / GPL v2 / GPL + 字體例外 / 文鼎公共許可，' +
+      '可商用、可修改、可再分發；' +
+      (grant.length ? (function () {
+        var keys = Object.keys(grantLic);
+        var label = keys.length === 1 ? (LIC_LABEL[keys[0]] || keys[0]) : keys.map(function (k) { return (LIC_LABEL[k] || k) + ' ' + grantLic[k]; }).join('、');
+        return ' 另有 ' + grant.length + ' 款（' + label + '）不走標準開源許可，而是作者／項目組的書面授權：需署名、禁商用，可隨本工具公開分發，卡片上單獨標注。';
+      })() : '') +
       ' 每款字体在仓库 fonts/ 下都有独立目录，内含 LICENSE.txt（协议全文）、license.json（结构化条款）与 NOTICE.md（来源与改动声明）。'));
   }
 
@@ -53,7 +66,9 @@
     var items = [
       ['all', '全部', c.shipped || 0],
       ['ancient', '古文字字形源', c.ancient || 0],
-      ['modern', '歷代書體字庫', c.modern || 0],
+      ['calligraphy', '書法 · 手寫', c.calligraphy || 0],
+      ['print', '刻本 · 活字', c.print || 0],
+      ['modern', '現代 · 排版', c.modern || 0],
       ['OFL-1.1', 'OFL 1.1', null],
       ['CC0-1.0', 'CC0', null],
       ['PD', '公有領域', null],
@@ -70,10 +85,9 @@
     if (!f.shipped) return false;
     var k = state.filter;
     if (k === 'all') return true;
-    if (k === 'ancient') return f.kind === 'ancient-compiled' || f.kind === 'ancient-font';
-    if (k === 'modern') return f.kind === 'modern-font';
+    if (k === 'ancient' || k === 'calligraphy' || k === 'print' || k === 'modern') return f.group === k;
     if (k === 'CC0-1.0') return f.license_spdx === 'CC0-1.0';
-    if (k === 'other') return ['OFL-1.1','CC0-1.0','PD'].indexOf(f.license_spdx) < 0;
+    if (k === 'other') return ['OFL-1.1', 'CC0-1.0', 'PD'].indexOf(f.license_spdx) < 0;
     return f.license_spdx === k;
   }
 
@@ -108,7 +122,11 @@
     top.appendChild(h('div', 'mono', f.mono));
     var tt = h('div', 'tt');
     var nm = h('div', 'nm', f.name_zh);
-    var badge = h('span', 'badge ' + (f.shipped ? 'ok' : 'warn'), LIC_LABEL[f.license_spdx] || f.license_spdx);
+    // 隔离分两种：条款不允许（徽章报许可名）vs 条款干净但来源存疑（徽章报「來源存疑」，
+    // 否则读者会以为 GPL v2 不能用）。
+    var btext = f.shipped ? (LIC_LABEL[f.license_spdx] || f.license_spdx)
+      : (f.quarantine_basis === 'provenance' ? '來源存疑' : (LIC_LABEL[f.license_spdx] || f.license_spdx));
+    var badge = h('span', 'badge ' + (f.shipped ? 'ok' : 'warn'), btext);
     nm.appendChild(document.createTextNode(' '));
     nm.appendChild(badge);
     tt.appendChild(nm);
@@ -118,7 +136,7 @@
 
     if (!f.shipped) {
       c.appendChild(h('div', 'meta', (f.era ? f.era + ' · ' : '') + (f.reject_reason || '许可不兼容')));
-      c.appendChild(h('div', 'meta', '未採用：不進入構建，字體文件已從倉庫移除。'));
+      c.appendChild(h('div', 'meta', '未採用：不進入構建，字體文件不隨倉庫分發，僅在本機留檔備查。'));
       if (f.source_url) {
         var acts0 = h('div', 'acts');
         var a0 = h('a', null, '来源 ↗');

@@ -141,13 +141,22 @@
     box.innerHTML = '';
     function isModern(L) { return L.kind === 'modern-font' && L.group !== 'ancient'; }
     var groups = [
-      { t: '古文字 · 字形源', test: function (L) { return !isModern(L); } },
-      { t: '刻本源流 · 老字體', test: function (L) { return isModern(L) && L.group === 'print'; } },
-      { t: '現代字庫', test: function (L) { return isModern(L) && L.group !== 'print'; } }
+      { key: 'ancient', t: '古文字 · 字形源', test: function (L) { return !isModern(L); } },
+      { key: 'calligraphy', t: '書法 · 手寫', test: function (L) { return isModern(L) && L.group === 'calligraphy'; } },
+      { key: 'print', t: '刻本 · 活字', test: function (L) { return isModern(L) && L.group === 'print'; } },
+      { key: 'modern', t: '現代 · 排版', test: function (L) { return isModern(L) && L.group !== 'calligraphy' && L.group !== 'print'; } }
     ];
     groups.forEach(function (g) {
       var list = LAYERS.filter(g.test);
       if (!list.length) return;
+      /* 書法组按书体排：楷 → 行 → 草 → 隶 → 魏碑 → 篆 → 其他，同体按名字 */
+      if (g.key === 'calligraphy') {
+        var RANK = { '楷书': 1, '楷': 1, '行书': 2, '行': 2, '草书': 3, '草': 3, '隶书': 4, '隶': 4, '魏碑': 5, '篆书': 6, '篆': 6 };
+        list = list.slice().sort(function (a, b) {
+          var ra = RANK[a.style] || 9, rb = RANK[b.style] || 9;
+          return ra !== rb ? ra - rb : (a.name_zh || '').localeCompare(b.name_zh || '', 'zh');
+        });
+      }
       box.appendChild(el('div', 'grp', g.t));
       list.forEach(function (L) {
         var row = el('div', 'lay' + (state.enabled.has(L.id) ? ' on' : ''));
@@ -433,7 +442,9 @@
   function boot() {
     var ancient = LAYERS.filter(function (L) { return L.kind !== 'modern-font' || L.group === 'ancient'; });
     ancient.forEach(function (L) { state.enabled.add(L.id); });
-    ['notoserifsc', 'lxgwwenkai', 'huiwenmincho', 'zenoldmincho'].forEach(function (id) {
+    /* 默认摆出「楷、行、草」各一款书法字体，而不是排版字体——
+       用户要的是看字形，不是排正文。 */
+    ['mashanzheng', 'lxgwwenkai', 'zhimangxing', 'liujianmaocao'].forEach(function (id) {
       if (LAYERS.some(function (L) { return L.id === id; })) state.enabled.add(id);
     });
     LAYERS.forEach(function (L) { if (state.enabled.has(L.id)) ensureCss(L.id); });

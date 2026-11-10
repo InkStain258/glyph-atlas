@@ -149,6 +149,7 @@ LICENSE_NAMES = {
     "PD": ("公有领域（Public Domain）", "https://creativecommons.org/publicdomain/mark/1.0/"),
     "Arphic-PL-1.0": ("文鼎公共许可（Arphic Public License）", "https://www.arphic.com/"),
     "GPL-3.0+FE": ("GNU GPL v3 附字体例外", "https://www.gnu.org/licenses/gpl-3.0.html"),
+    "GPL-2.0": ("GNU General Public License v2.0", "https://www.gnu.org/licenses/old-licenses/gpl-2.0.html"),
     "PROPRIETARY": ("商业授权（不可自由分发）", ""),
     "UNKNOWN": ("许可不明", ""),
     "PROJECT-GRANT": ("项目组内部授权（北师大文学院，限学习研究）", ""),
@@ -162,6 +163,7 @@ LICENSE_FILES = {
     "IPA-1.0": "IPA-1.0.txt",
     "Arphic-PL-1.0": "Arphic-PL-1.0.txt",
     "GPL-3.0+FE": "GPL-3.0+FE.txt",
+    "GPL-2.0": "GPL-2.0.txt",
     "PROJECT-GRANT": "PROJECT-GRANT.txt",
 }
 
@@ -646,7 +648,7 @@ def main():
                 "attribution_text": "",
                 "modification_allowed": spdx != "CC-BY-ND-3.0",
                 "redistribution_allowed": spdx != "PROPRIETARY",
-                "commercial_use_allowed": spdx in ("OFL-1.1", "CC0-1.0", "CC-BY-4.0", "PD", "GPL-3.0+FE", "Arphic-PL-1.0"),
+                "commercial_use_allowed": spdx in ("OFL-1.1", "CC0-1.0", "CC-BY-4.0", "PD", "GPL-3.0+FE", "GPL-2.0", "Arphic-PL-1.0"),
                 "reserved_font_name": f.get("reserved_font_name"),
                 "source_url": f.get("source_url", ""),
                 "source_detail": f.get("style_detail", ""),
@@ -681,21 +683,32 @@ def main():
         if not args.check:
             move_if(src, orig)
         spdx = f.get("license_spdx", "UNKNOWN")
-        reason = {"PROPRIETARY": "商用授权/保留所有权利", "CC-BY-ND-3.0": "禁止改作（与子集化冲突）",
-                  "IPA-1.0": "IPA 许可与本项目分发方式不兼容", "UNKNOWN": "许可不明"}.get(spdx, spdx)
+        # 隔离有两种依据：许可本身不允许（license），或许可干净但来源权属存疑（provenance）。
+        # 后者必须如实报出该许可真实的条款，不能因为隔离就把「可修改/可商用」写成 false。
+        FREE = ("OFL-1.1", "CC0-1.0", "CC-BY-4.0", "PD", "GPL-3.0+FE", "GPL-2.0", "Arphic-PL-1.0")
+        basis = "provenance" if spdx in FREE else "license"
+        reason = (f.get("quarantine_reason") or "").strip() or {
+            "PROPRIETARY": "商用授权/保留所有权利", "CC-BY-ND-3.0": "禁止改作（与子集化冲突）",
+            "IPA-1.0": "IPA 许可与本项目分发方式不兼容", "UNKNOWN": "许可不明",
+            "UNVERIFIED": "字体 name 表找不到许可声明，无法核验",
+        }.get(spdx, spdx)
         if not args.check:
             if spdx in ("PROPRIETARY",):
                 txt = PROPRIETARY_TEXT.format(name=f.get("name_zh"), copyright=f.get("license_text_excerpt") or "",
                                               id=fid)
             elif spdx == "UNKNOWN":
                 txt = UNKNOWN_TEXT.format(name=f.get("name_zh"), id=fid)
+            elif basis == "provenance":
+                txt = ("本字体许可为 %s，条款本身允许修改与再分发；但**来源权属存在争议**，"
+                       "本项目不采用、不进入构建产物、不随仓库分发。\n\n理由：%s\n\n%s\n"
+                       % (spdx, reason, f.get("license_text_excerpt") or ""))
             else:
                 txt = ("本字体许可为 %s，与本项目的「子集化 + 再分发」不兼容，故不采用。\n\n%s\n"
                        % (spdx, f.get("license_text_excerpt") or ""))
             open(os.path.join(folder, "LICENSE.txt"), "w", encoding="utf-8").write(txt)
             open(os.path.join(folder, "NOTICE.md"), "w", encoding="utf-8").write(
                 quarantine_notice(f, spdx, txt))
-            write_license_json(folder, {
+            qentry = {
                 "id": fid, "kind": "quarantine",
                 "name_zh": f.get("name_zh"), "name_en": f.get("name_en", ""),
                 "era": f.get("era", ""), "era_order": 0,
@@ -706,18 +719,25 @@ def main():
                 "license_text_file": "LICENSE.txt", "license_text_rel": "LICENSE.txt",
                 "copyright_holder": f.get("license_text_excerpt") or "",
                 "author": "", "attribution_required": True, "attribution_text": "",
-                "modification_allowed": False, "redistribution_allowed": False,
-                "commercial_use_allowed": False, "reserved_font_name": None,
+                # 许可本身允许的，如实写 true；隔离依据是来源（provenance）而非条款。
+                "modification_allowed": spdx in FREE,
+                "redistribution_allowed": spdx in FREE,
+                "commercial_use_allowed": spdx in FREE,
+                "quarantine_basis": basis, "reserved_font_name": None,
                 "source_url": f.get("source_url", ""), "source_detail": "",
-                "chars": f.get("num_chars", 0), "glyphs": f.get("num_glyphs", 0), "variants": 0,
+                "chars": (f.get("num_chars") or f.get("cmap_entries") or 0), "glyphs": f.get("num_glyphs", 0), "variants": 0,
                 "files": {"original": "original.ttf"},
                 "bytes": f.get("bytes", 0), "sha256": f.get("sha256", ""),
                 "notice_file": "NOTICE.md", "shipped": False,
                 "reject_reason": reason,
                 "derivation": "仅供授权核验留档，不进入任何构建产物。",
-            })
-        lib.append({"id": fid, "kind": "quarantine", "name_zh": f.get("name_zh"),
-                    "license_spdx": spdx, "shipped": False, "reject_reason": reason})
+            }
+            write_license_json(folder, qentry)
+            lib.append(qentry)
+        else:
+            # --check 模式不写文件，最少字段供打印
+            lib.append({"id": fid, "kind": "quarantine", "name_zh": f.get("name_zh"),
+                        "license_spdx": spdx, "shipped": False, "reject_reason": reason})
 
     # ---------- 索引 ----------
     if not args.check:

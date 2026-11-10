@@ -68,14 +68,30 @@ def main():
     for f in sorted(os.listdir(licdir)):
         copyfile(os.path.join(licdir, f), os.path.join(OUT, "LICENSES", f))
 
+    # GPL 字体：分发子集化的可修改源文件（GPL 对「源」的要求）。
+    # 网页分片 woff2 是压缩产物，不能算源；这里把 subset.ttf 一并放出去。
+    lib_json = os.path.join(ROOT, "data", "font-library.json")
+    lib = json.load(io.open(lib_json, encoding="utf-8"))
+    gpl = [f for f in lib["fonts"] if f.get("shipped") and f.get("license_spdx") == "GPL-2.0"]
+    if gpl:
+        srcdir = os.path.join(OUT, "LICENSES", "GPL-SOURCES")
+        os.makedirs(srcdir, exist_ok=True)
+        for f in gpl:
+            p = os.path.join(ROOT, "fonts", "modern", f["id"], "subset.ttf")
+            if os.path.exists(p):
+                copyfile(p, os.path.join(srcdir, f["id"] + "-subset.ttf"))
+                print("GPL source ->", f["id"], "%.1f MB" % (os.path.getsize(p) / 1048576), flush=True)
+
     # 第三方清单
     lib = json.load(io.open(os.path.join(ROOT, "data", "font-library.json"), encoding="utf-8"))
     fonts = [f for f in lib["fonts"] if f.get("shipped")]
     fonts.sort(key=lambda f: (f.get("era_order") or 0, f.get("name_zh") or ""))
+    n_anc = sum(1 for f in fonts if f.get("kind") in ("ancient-compiled", "ancient-font"))
+    n_mod = len(fonts) - n_anc
     lines = [
         "# 第三方素材清单 · Third-party notices",
         "",
-        "本工具的字形来自 36 款字库（9 个古文字字形源 + 27 款历史/现代字库）。逐款许可如下，",
+        "本工具的字形来自 %d 款字库（%d 个古文字字形源 + %d 款历史/现代字库）。逐款许可如下，" % (len(fonts), n_anc, n_mod),
         "协议全文见 `LICENSES/`。每款在原始仓库里都有独立目录，内含 `LICENSE.txt`、`license.json`、`NOTICE.md`。",
         "",
         "| 字体 | 时代/书体 | 许可 | 字数 | 需署名 | 可商用 |",
@@ -99,10 +115,16 @@ def main():
         "- **BabelStone IDS**（[babelstone.co.uk/CJK/IDS.TXT](https://babelstone.co.uk/CJK/IDS.TXT)）：部件结构数据，97,680 条。作者声明任何人可为个人或商业目的自由使用，无需许可或署名。",
         "- **OpenCC / Unicode Unihan**：简繁异体映射，仅在构建期使用，最终产物是等价类表，不随仓库分发原始映射文件。",
         "",
+        "## 字体源文件（GPL 义务）",
+        "",
+        "GPL 许可的字库，子集化与 WOFF2 转换属衍生作品，须随分发提供可修改的源。",
+        "本仓库 `LICENSES/GPL-SOURCES/` 下放了各款的 `subset.ttf`（TTF 即可编辑的源形态），",
+        "可直接用 fontTools / FontForge 修改后重新生成。",
+        "",
         "## 已排除",
         "",
         "商业字库（汉仪、方正、文鼎、华康、华文、字魂、锐字、叶根友等）一律未下载、未打包；",
-        "另有 5 款经核验不能落地的字库（CC BY-ND、IPA 许可、保留所有权利等）只保留许可留档，二进制未分发。",
+        "另有经核验不能落地的字库（CC BY-ND、IPA 许可、保留所有权利、来源权属存疑等）只保留许可留档，二进制未分发。",
     ]
     io.open(os.path.join(OUT, "LICENSES", "THIRD-PARTY.md"), "w", encoding="utf-8", newline="\n").write(
         "\n".join(lines) + "\n")

@@ -65,12 +65,13 @@ def main():
             }
         kind = f.get("kind")
         in_ancient_group = kind in ("ancient-compiled", "ancient-font") or f.get("group") == "ancient"
+        grp = "ancient" if in_ancient_group else (f.get("group") or "modern")
         folder = (("fonts/ancient/" + f["id"]) if kind in ("ancient-compiled", "ancient-font") else (
             ("fonts/modern/" + f["id"]) if kind == "modern-font" else ("fonts/quarantine/" + f["id"])))
         fonts.append({
             "id": f["id"],
             "kind": kind,
-            "group": "ancient" if in_ancient_group else "modern",
+            "group": grp,
             "name_zh": f.get("name_zh") or f["id"],
             "name_en": f.get("name_en") or "",
             "era": f.get("era") or "",
@@ -100,10 +101,13 @@ def main():
             "shipped": bool(f.get("shipped")),
             "web_shipped": bool(f.get("web_shipped", True)),
             "reject_reason": f.get("reject_reason") or "",
+            "quarantine_basis": f.get("quarantine_basis"),
             "file_removed": bool(f.get("file_removed")),
         })
 
-    fonts.sort(key=lambda x: (0 if x["shipped"] else 1, x["era_order"], x["name_zh"]))
+    GRANK = {"ancient": 0, "calligraphy": 1, "print": 2, "modern": 3}
+    fonts.sort(key=lambda x: (0 if x["shipped"] else 1, GRANK.get(x["group"], 9),
+                              x["era_order"], x["name_zh"]))
     payload = {
         "generated_at": lib.get("generated_at"),
         "texts": texts,
@@ -112,7 +116,9 @@ def main():
             "shipped": sum(1 for x in fonts if x["shipped"]),
             "rejected": sum(1 for x in fonts if not x["shipped"]),
             "ancient": sum(1 for x in fonts if x["shipped"] and x["group"] == "ancient"),
-            "modern": sum(1 for x in fonts if x["shipped"] and x["group"] != "ancient"),
+            "calligraphy": sum(1 for x in fonts if x["shipped"] and x["group"] == "calligraphy"),
+            "print": sum(1 for x in fonts if x["shipped"] and x["group"] == "print"),
+            "modern": sum(1 for x in fonts if x["shipped"] and x["group"] == "modern"),
         },
     }
     os.makedirs(os.path.dirname(OUT), exist_ok=True)

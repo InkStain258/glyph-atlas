@@ -28,15 +28,26 @@ INCOMING = os.path.join(ROOT, "fonts", "incoming")
 CATALOG = os.path.join(ROOT, "data", "font-catalog.json")
 OUT = os.path.join(ROOT, "data", "layers-modern.json")
 
-# 侧栏分组：古文字层由 kind 判定；现代层按「刻本源流 / 现代字库」两档摆
+# 侧栏分组：古文字层由 kind 判定；现代层分「書法 · 手寫 / 刻本 · 活字 / 現代 · 排版」三档。
+# 优先用 catalog 里写的 group（新字体由 font-scout 在条目里声明），
+# 其次查下面的显式表，最后按书体（style）推断。
 GROUP = {
     "shuowen-seal-kaiyuan": "ancient",  # 說文小篆：归「古文字·字形源」，不摆进现代字库
     "zenoldmincho": "print",    # 江户–明治老明朝复刻
     "kaiseitokumin": "print",   # 明治活字复刻（古书籍明朝）
     "newtegomin": "print",      # 明治木活字复刻
-    "yujisyuku": "print",       # 毛笔楷 / 写经风
-    "grassseal": "print",       # 小篆复刻
-    "iansui": "print",          # 台繁手写楷
+    "yujisyuku": "calligraphy", # 毛笔楷 / 写经风
+    "grassseal": "calligraphy", # 小篆复刻
+    "iansui": "calligraphy",    # 台繁手写楷
+}
+
+# 按书体兜底：书法字体就该进「書法 · 手寫」，排版字体才进「現代 · 排版」
+STYLE_GROUP = {
+    "楷书": "calligraphy", "行书": "calligraphy", "草书": "calligraphy",
+    "篆书": "calligraphy", "隶书": "calligraphy", "魏碑": "calligraphy",
+    "书法": "calligraphy", "手写": "calligraphy",
+    "宋体": "print", "仿宋": "print", "明朝": "print",
+    "黑体": "modern",
 }
 
 # 不进 web 的层：hanamin-b 在 GBK 范围内只有 6 个字，字形全部集中在 Ext-B，
@@ -170,7 +181,7 @@ def main():
             "license_url": f.get("license_url", ""),
             "source_url": f.get("source_url", ""),
             "kind": "modern-font",
-            "group": GROUP.get(fid, "modern"),
+            "group": GROUP.get(fid) or f.get("group") or STYLE_GROUP.get(f.get("style", ""), "modern"),
             "note": f.get("encoding_note", ""),
             "chars": len(wanted),
             "glyphs": len(wanted),

@@ -1,1 +1,1 @@
-window.GA_FONTCOUNT=36;
+window.GA_FONTCOUNT=44;

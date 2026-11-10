@@ -179,6 +179,8 @@
 
 ## 6. 书体缺口与替代方案
 
+> **后续（第四轮，2026-11-10）**：仍无干净的隶书字库。唯一候选王漢宗 `wt021` 中隸書在文鼎侵权主张的 14 款之内，已隔离（见 §16.3）。隶书字形继续用 `fonts/ancient/clerical` 的 CC0 编译层。
+
 ### 6.1 隶书 —— 没有合法的免费隶书字库（TTF/OTF）
 
 排查过程：
@@ -215,6 +217,8 @@
 **可用方案仍是 `hanzi-glyphs-svg` 的 `glyphs/seal/`：10,591 个篆书 SVG，CC0 1.0，逐字有出处**
 （汉典《服务条款》第四条以 CC0 释出，见该仓库 `LICENSE-DATA`）。
 若产品必须用字体文件渲染篆书，则需自行从这些 CC0 轮廓编译字体，或采购商业篆书字体授权。
+
+> **后续（第四轮，2026-11-10）**：已补上。王漢宗 `wts43` 中魏碑簡（GPL-2.0，13,495 字）不在文鼎主张清单内，已作为 `wang-weibei` 层发布（见 §16.2）。本节以下为该轮之前的调研记录。
 
 ### 6.3 魏碑 —— 没有合法的免费魏碑字库
 
@@ -602,3 +606,79 @@ glyph-atlas/
 ### 15.5 复现
 
 `fonts/incoming/shuowen-seal-kaiyuan/` 内四件套即成品；编译脚本与上游 zip 未随仓库分发（体积原因），算法与参数见 `docs/seal-source-report.md`。核验可用 `scripts/verify_fonts.py --check-only`（只读，不写 catalog）。
+
+---
+
+## 16. 第四轮：书法与手写专项（2026-11-10）
+
+**动机**：用户明示「继续增加字体，不要那么多现代字体，重点关注书法字体，记得记录版权协议并且增加到版权页」。前几轮补的都是古代字形与刻本源流，书体上仍缺**魏碑**；行草也只有志莽行书、刘建毛草各一款。本轮的目标是**楷／行／草／篆／隶／魏碑六体齐全**，而不是继续堆宋黑。
+
+### 16.1 新增 8 款（全部 `mod=True redist=True comm=True`）
+
+| id | 字体 | 书体 | 许可 | 字数 | 字形 | 原始体积 | 来源 |
+|---|---|---|---|---|---|---|---|
+| `wang-yankai` | 王漢宗顏楷體繁 | 楷（颜体） | **GPL-2.0** | 13,495 | 14,148 | 8.57 MB | 王漢宗自由字型 48 套之 `wt064` |
+| `wang-weibei` | 王漢宗中魏碑簡 | **魏碑** | **GPL-2.0** | 13,495 | 14,148 | 10.52 MB | `wts43` |
+| `wang-gangbixingkai` | 王漢宗鋼筆行楷繁 | 行（钢笔） | **GPL-2.0** | 13,495 | 14,148 | 6.28 MB | `wthc06` |
+| `zhenkai` | 霞鹜臻楷 | 楷 | OFL-1.1 | 21,791 | 23,964 | 17.45 MB | `lxgw/LxgwZhenKai` release |
+| `xiaolai` | 小赖字体 | 楷 | OFL-1.1 | 21,791 | 44,917 | 22.22 MB | `lxgw/kose-font` |
+| `yozai` | 悠哉字体 | 楷 | OFL-1.1 | 21,748 | 25,803 | 15.61 MB | `lxgw/yozai-font` |
+| `xuanzongti` | 玄宗体 | 行（唐玄宗《鹡鸰颂》笔意） | OFL-1.1 | 21,791 | 65,535 | 38.61 MB | `kaonashi-tyc/Zi-XuanZongTi`（**.otf / CFF**） |
+| `zhiyong` | 智勇大同体 | 楷 | OFL-1.1 | 7,276 | 7,414 | 5.20 MB | 智勇大同体发布页 |
+
+合计原始 **124,457,120 B**。CFF 轮廓的 `.otf` 也走同一条管线：`fontTools.subset` 对 `sfntVersion=OTTO` 正常，子集化 + WOFF2 往返无损坏（实测 25 glyph → 17,276 B，再全量 26.44 MB 子集）。
+
+### 16.2 王漢宗自由字型：逐款判定，不是整包放行
+
+这是本轮唯一需要**证据分级**的来源。48 套字体以 **GPL v2**（无字体例外）发布，2005 年文鼎科技曾主张其中 **14 款**与其字型「极度相似」，自由软件站点一度下架。**没有法院一手文件**，只有社群记载（zh.wikiversity「王漢宗自由字型」条目、`frank890417/taiwan-md` 报告）。
+
+因此按**逐款**核对侵权清单，而不是按「王漢宗」这个作者名一刀切：
+
+| 字型 | 书体 | 是否在文鼎主张的 14 款内 | 处置 |
+|---|---|---|---|
+| `wt064` | 顏楷體繁 | 否 | ✅ 发布 `wang-yankai` |
+| `wts43` | 中魏碑簡體 | 否 | ✅ 发布 `wang-weibei` |
+| `wthc06` | 鋼筆行楷繁 | 否 | ✅ 发布 `wang-gangbixingkai` |
+| `wt021` | 中隸書繁 | **是** | ⛔ 隔离 `wang-lisu`（隶书因此仍无字体形态） |
+| `wt071` | 中行書繁 | **是** | ⛔ 隔离 `wang-xingshu` |
+| `wts11` | 粗楷體簡體 | **是** | ⛔ 隔离 `wang-cukai` |
+
+三个发布款的 `NOTICE.md` 里都写明「此款不在文鼎科技主张侵权的 14 款之内」，把正面证据留在文件里；三个隔离款的 `license.json` 记 `quarantine_basis: "provenance"`，同时**如实**写 `modification_allowed / redistribution_allowed / commercial_use_allowed = true`——GPL v2 条款本身没问题，隔离是因为来源存疑，不能把条款说反。
+
+**GPL-2.0 的额外义务**：子集化 + 转 WOFF2 属衍生作品，须继续以 GPL-2.0 分发**且提供可修改的源形态**（WOFF2 是压缩产物，不算源）。所以：
+- `scripts/make_public_site.py` 把三个发布款的 `fonts/modern/<id>/subset.ttf` 复制到发布物 `LICENSES/GPL-SOURCES/<id>-subset.ttf`（TTF 即可编辑）；
+- `LICENSES/THIRD-PARTY.md` 新增「## 字体源文件（GPL 义务）」一节逐款列出路径；
+- 子集 TTF 的 name 表按 OFL/GPL 惯例改家族名为 `GA-<id> Subset`，版权行与许可声明原样保留。
+
+### 16.3 隔离区：两种依据，不能混为一谈
+
+| 依据 | 含义 | 本轮新增 |
+|---|---|---|
+| `license` | 条款本身不允许改作/再分发 | 演示字体 5 款（name 表无 OFL 声明，`UNVERIFIED`） |
+| `provenance` | 条款干净，但来源权属存疑 | 王漢宗 3 款、莫大毛筆 1 款 |
+
+- **演示字体 5 款**（春风楷／秋鸿楷／夏行楷／佛系体／悠然小楷）：仓库 README 声明「经授权委托书开源并附 OFL.txt」，但**字体文件 nameID13 缺失、nameID0 写 All rights reserved**。按本项目「name 表找不到 OFL 声明必须隔离」的硬规则进隔离区，`SPDX=UNVERIFIED`，待人工拿到授权书正文后可放行。
+- **莫大毛筆**：nameID13 是 OFL-1.1，但上游衡山毛筆フォント只声明「免费使用、商用无限制」，未明确允许改作与再分发，权利链不完整。
+- 隔离目录里的 `original.ttf` **仅本机留档**，不进 Git、不进发布物；`license.json` 有 `quarantine_basis` 与 `reject_reason`，版权页灰卡据此显示「來源存疑」或条款名。
+
+### 16.4 书体覆盖：9/10，只差隶书
+
+| 书体 | 落地 | 状态 |
+|---|---|---|
+| 楷 | 霞鹜文楷、霞鹜臻楷、小赖、悠哉、马善政、龙藏、芫荽、智勇、Klee One、Yuji Syuku、Fandol 楷、王漢宗顏楷 | ✅ 12 |
+| 行 | 志莽行书、玄宗体、王漢宗鋼筆行楷 | ✅ 3 |
+| 草 | 刘建毛草 | ✅ 1 |
+| 篆 | 霞鹜篆书、草篆、說文小篆、開元小篆 | ✅ 4 |
+| **魏碑** | 王漢宗中魏碑簡 | ✅ 1（本轮补上） |
+| **隶书** | — | ❌ 唯一缺口（wt021 争议隔离；字形用 `clerical` CC0 层替代） |
+
+### 16.5 复现
+
+```bash
+cd src
+python -X utf8 scripts/verify_fonts.py                 # 逐款读 name 表核验，输出 data/font-verify.json
+python -X utf8 scripts/build_modern_fonts.py --only wang-yankai wang-weibei wang-gangbixingkai zhenkai xiaolai yozai xuanzongti zhiyong
+python -X utf8 scripts/make_web.py --only <同上>
+python -X utf8 scripts/make_font_library.py            # 生成每款目录四件套
+python -X utf8 scripts/make_license_data.py            # 生成 web/data/licenses.js
+```

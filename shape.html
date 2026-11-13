@@ -79,6 +79,7 @@
           <div class="stat"><b id="star">—</b><span>長寬比</span></div>
           <div class="stat"><b id="stpx">—</b><span>筆畫像素</span></div>
         </div>
+        <div class="qdiag" id="qdiag">尚未輸入圖像</div>
       </div>
     </section>
 
@@ -87,17 +88,18 @@
       <div class="body">
 
         <div class="ctl">
-          <div class="lab"><span>二值化閾值</span><b id="vthr">128</b></div>
+          <div class="lab"><span>二值化閾值</span><b id="vthr">自動</b></div>
           <input type="range" id="thr" min="20" max="235" step="1" value="128">
           <div class="ticks"><i>20</i><i>暗←→亮</i><i>235</i></div>
+          <label class="sw sm"><input type="checkbox" id="autothr" checked><i class="track"></i><em>自動取閾值（按圖像灰度分佈）</em></label>
         </div>
 
         <label class="sw"><input type="checkbox" id="inv"><i class="track"></i><em>反相（白文↔朱文）</em></label>
 
         <div class="ctl" style="margin-top:9px">
-          <div class="lab"><span>去噪（開運算）</span><b id="vden">1</b></div>
+          <div class="lab"><span>去噪（清斑點）</span><b id="vden">1</b></div>
           <input type="range" id="den" min="0" max="4" step="1" value="1">
-          <div class="ticks"><i>關</i><i>石花抑制</i><i>強</i></div>
+          <div class="ticks"><i>關</i><i>刪孤點，細筆保留</i><i>強</i></div>
         </div>
 
         <div class="ctl">

@@ -15,7 +15,7 @@
   var LS_CFG = "ga.shape.cfg.v1";
 
   var state = {
-    thr: 128, inv: false, den: 1, wt: 0, rot: 0, trim: 0, wgt: 70,
+    thr: 128, auto: true, invAuto: true, inv: false, den: 1, wt: 0, rot: 0, trim: 0, wgt: 70,
     layers: ["seal", "oracle", "bronze"], num: 48, sort: "sim", view: "glyph",
     markfilter: "all", srcLabel: "—", srcChar: null,
     all: [], shown: [], sel: {}, drawerIdx: -1, busy: false
@@ -84,7 +84,8 @@
   function saveCfg() {
     try {
       localStorage.setItem(LS_CFG, JSON.stringify({
-        thr: state.thr, inv: state.inv, den: state.den, wt: state.wt, rot: state.rot,
+        thr: state.thr, auto: state.auto, invAuto: state.invAuto, inv: state.inv,
+        den: state.den, wt: state.wt, rot: state.rot,
         trim: state.trim, wgt: state.wgt, layers: state.layers, num: state.num,
         sort: state.sort, view: state.view
       }));
@@ -162,29 +163,103 @@
     }));
   }
 
-  /* ================= 图像处理 ================= */
-  function toWork(src) {
+  /* ================= 图像处理 =================
+     低分辨率单字图（书影裁切、小印面）常常只有几十像素见方：原样二值化后
+     笔画只剩 1px，再被 3×3 开运算整条抹掉 → 掩膜空 → 判「無墨」。
+     这里把「上采样 → 对比度拉伸 → Otsu 自适应阈值 → 按面积清斑点 →
+     质量校验 + 备用方案」串成一条自适应链。 */
+  var UP_MIN = 240, UP_MAXF = 8;
+  var NX8 = [-1, 0, 1, -1, 1, -1, 0, 1], NY8 = [-1, -1, -1, 0, 0, 1, 1, 1];
+  var DEN_AREA = [0, 3, 6, 10, 18];
+
+  function toWork(src, up) {
     var w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
-    var s = Math.min(1, WORK / Math.max(w, h));
+    var m = Math.max(w, h), s;
+    if (m >= WORK) s = WORK / m;                                    /* 大图只缩 */
+    else if (m < UP_MIN) s = Math.min(UP_MAXF, UP_MIN / Math.max(1, m));  /* 小图放大 */
+    else s = 1;
+    s = clamp(s * (up || 1), 0.05, UP_MAXF * 2);
     var c = document.createElement("canvas");
     c.width = Math.max(8, Math.round(w * s)); c.height = Math.max(8, Math.round(h * s));
     var x = c.getContext("2d", { willReadFrequently: true });
-    x.fillStyle = "#000"; x.fillRect(0, 0, c.width, c.height);
+    /* 透明底 PNG（抠好的单字）按纸白合成；填黑会把深色字整个吞掉 */
+    x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high";
     x.drawImage(src, 0, 0, c.width, c.height);
     return c;
   }
-  function binarize(canvas) {
-    var W = canvas.width, H = canvas.height;
-    var d = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, W, H).data;
-    var m = new Uint8Array(W * H), border = 0, bn = 0;
-    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
-      var i = y * W + x, o = i * 4;
-      var lum = 0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2];
-      m[i] = (state.inv ? lum < state.thr : lum > state.thr) ? 1 : 0;
-      if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) { border += lum; bn++; }
-    }
-    return { m: m, W: W, H: H, borderLum: bn ? border / bn : 0 };
+
+  function pctOf(hist, n, p) {
+    var t = 0, goal = n * p;
+    for (var v = 0; v < 256; v++) { t += hist[v]; if (t >= goal) return v; }
+    return 255;
   }
+  function otsuOf(hist, n) {
+    var sum = 0, i;
+    for (i = 0; i < 256; i++) sum += i * hist[i];
+    var wb = 0, sb = 0, best = 0, bestVar = -1;
+    for (i = 0; i < 256; i++) {
+      wb += hist[i]; if (!wb) continue;
+      var wf = n - wb; if (!wf) break;
+      sb += i * hist[i];
+      var mb = sb / wb, mf = (sum - sb) / wf, v = wb * wf * (mb - mf) * (mb - mf);
+      if (v > bestVar) { bestVar = v; best = i; }
+    }
+    return best;
+  }
+
+  function binarize(canvas, o) {
+    var W = canvas.width, H = canvas.height, n = W * H;
+    var d = canvas.getContext("2d", { willReadFrequently: true }).getImageData(0, 0, W, H).data;
+    var hist = new Int32Array(256), i, o4, x, y, v, lum;
+    var bsum = 0, bn = 0;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      i = y * W + x; o4 = i * 4;
+      lum = 0.299 * d[o4] + 0.587 * d[o4 + 1] + 0.114 * d[o4 + 2];
+      hist[lum | 0]++;
+      if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) { bsum += lum; bn++; }
+    }
+    /* 淡墨扫描件灰阶常挤在很窄一段：按 1%~99% 分位摊开，阈值才有意义 */
+    var lo = pctOf(hist, n, 0.01), hi = pctOf(hist, n, 0.99), lut = null;
+    if (hi - lo > 4 && hi - lo < 96) {
+      lut = new Uint8Array(256);
+      var k = 255 / (hi - lo);
+      for (v = 0; v < 256; v++) lut[v] = clamp(Math.round((v - lo) * k), 0, 255);
+      var h2 = new Int32Array(256);
+      for (v = 0; v < 256; v++) h2[lut[v]] += hist[v];
+      hist = h2;
+      bsum = bn ? lut[clamp(Math.round(bsum / bn), 0, 255)] * bn : 0;
+    }
+    /* 背景 = 直方图众数（紧裁切单字图没有可靠边框）。众数占比过低说明墨占了大半幅，
+       这时退回边框均值当背景估计。 */
+    var bg = 0, bgc = -1;
+    for (v = 0; v < 256; v++) if (hist[v] > bgc) { bgc = hist[v]; bg = v; }
+    var inv = o ? !!o.inv : !!state.inv;
+    if (bgc < n * 0.35) bg = clamp(Math.round(bsum / Math.max(1, bn)), 0, 255);
+    /* 墨的峰值：在背景另一侧找直方图次峰，阈值取两者中点。
+       Otsu 在正負样本面积极不平衡时（白字黑地，字只占 10%）会系统性偏低，
+       中点法能稳定落回「背景与墨之间」。 */
+    var inkv = bg, ic = -1, vv;
+    if (inv) { for (vv = 0; vv < bg; vv++) if (hist[vv] > ic) { ic = hist[vv]; inkv = vv; } }
+    else { for (vv = bg + 1; vv < 256; vv++) if (hist[vv] > ic) { ic = hist[vv]; inkv = vv; } }
+    var ot = otsuOf(hist, n);
+    var adaptive = (ic < 0 || Math.abs(inkv - bg) < 12) ? ot : Math.round((bg + inkv) / 2);
+    var auto = o ? !!o.auto : !!state.auto;
+    var thr = clamp(auto ? adaptive : (o ? o.thr : state.thr), 20, 235);
+    var m = new Uint8Array(n), border = 0, bcount = 0;
+    for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
+      i = y * W + x; o4 = i * 4;
+      lum = 0.299 * d[o4] + 0.587 * d[o4 + 1] + 0.114 * d[o4 + 2];
+      if (lut) lum = lut[lum | 0];
+      m[i] = (inv ? lum < thr : lum > thr) ? 1 : 0;
+      if (x < 3 || y < 3 || x >= W - 3 || y >= H - 3) { border += lum; bcount++; }
+    }
+    return {
+      m: m, W: W, H: H, thr: thr, otsu: ot, adaptive: adaptive, bgLum: bg,
+      stretched: !!lut, borderLum: bcount ? border / bcount : 0
+    };
+  }
+
   function morph(src, W, H, dilate) {
     var tmp = new Uint8Array(W * H), out = new Uint8Array(W * H), x, y, k, v, s, xx, yy;
     for (y = 0; y < H; y++) for (x = 0; x < W; x++) {
@@ -205,6 +280,35 @@
     }
     return out;
   }
+
+  /* 按连通域面积清斑点，替代 3×3 开运算。
+     开运算会把 1px 宽的细笔整条抹掉——正是低分辨率图最受伤的地方；
+     按面积只删孤点，细长笔画一律保留。 */
+  function despeckle(src, W, H, den) {
+    var minA = DEN_AREA[clamp(den, 0, 4)] || 3;
+    var out = new Uint8Array(src.length), seen = new Uint8Array(src.length);
+    var stack = new Int32Array(src.length), removed = 0;
+    var n = W * H, i, sp, idx, x, y, k, xx, yy, j;
+    for (i = 0; i < n; i++) {
+      if (!src[i] || seen[i]) continue;
+      var comp = [], area = 0;
+      sp = 0; stack[sp++] = i; seen[i] = 1;
+      while (sp) {
+        idx = stack[--sp]; comp.push(idx); area++;
+        x = idx % W; y = (idx - x) / W;
+        for (k = 0; k < 8; k++) {
+          xx = x + NX8[k]; yy = y + NY8[k];
+          if (xx < 0 || yy < 0 || xx >= W || yy >= H) continue;
+          j = yy * W + xx;
+          if (src[j] && !seen[j]) { seen[j] = 1; stack[sp++] = j; }
+        }
+      }
+      if (area < minA) removed += area;
+      else for (k = 0; k < comp.length; k++) out[comp[k]] = 1;
+    }
+    return { m: out, removed: removed };
+  }
+
   function maskToCanvas(m, W, H) {
     var c = document.createElement("canvas"); c.width = W; c.height = H;
     var x = c.getContext("2d"), im = x.createImageData(W, H), d = im.data;
@@ -238,16 +342,18 @@
     }
     return x1 < 0 ? null : { x0: x0, y0: y0, x1: x1, y1: y1, w: x1 - x0 + 1, h: y1 - y0 + 1 };
   }
-  /* 与 Python 的 round()/np.rint() 一致：四舍六入五取偶 */
+
+  /* 四舍六入五取偶，对齐 Python round() */
   function rint(v) {
     var f = Math.floor(v), d = v - f;
     if (d > 0.5) return f + 1;
     if (d < 0.5) return f;
     return (f & 1) ? f + 1 : f;
   }
-  /* 面积平均缩放，逐位等价于 PIL 的 Image.BOX。
-     不能用 canvas 的 drawImage 平滑：Chrome 的高质量缩小不是盒式滤波，
-     会让指纹与离线指引起系统性偏差（实测同一个字相似度从 98% 掉到 88%）。 */
+
+  /* 盒式重采样（逐输出像素按面积覆盖率加权平均），等价 PIL Image.BOX。
+     不能用 canvas drawImage 的平滑缩小：Chrome 的高质量缩放不是盒式滤波，
+     同一个字相似度会从 98% 掉到 88%。 */
   function boxResize(src, sw, sh, dw, dh) {
     var out = new Uint8Array(dw * dh), xs = sw / dw, ys = sh / dh;
     for (var dy = 0; dy < dh; dy++) {
@@ -272,6 +378,7 @@
     }
     return out;
   }
+
   function normalizeMask(m, W, H, bb) {
     var s = INNER / Math.max(bb.w, bb.h);
     var tw = Math.max(1, rint(bb.w * s)), th = Math.max(1, rint(bb.h * s));
@@ -285,6 +392,7 @@
       a[(oy + j) * N + ox + i2] = small[j * tw + i2];
     return a;
   }
+
   function encode(alpha, w, h) {
     var q = new Uint8Array(256), gy, gx, y, x, s;
     for (gy = 0; gy < G; gy++) for (gx = 0; gx < G; gx++) {
@@ -308,19 +416,26 @@
     return { grid: q, proj: proj, aspect: aspect, ink: rint(inkc / alpha.length * 255), ar: ar, alpha: alpha };
   }
 
-  function process() {
-    if (!sourceImg) return null;
-    var wc = toWork(sourceImg);
-    var b = binarize(wc), m = b.m, W = b.W, H = b.H, i;
-    for (i = 0; i < state.den; i++) { m = morph(m, W, H, false); m = morph(m, W, H, true); }
-    if (state.wt > 0) for (i = 0; i < state.wt; i++) m = morph(m, W, H, true);
-    else if (state.wt < 0) for (i = 0; i < -state.wt; i++) m = morph(m, W, H, false);
+  function mix(a, b) {
+    var o = {}, k;
+    for (k in a) o[k] = a[k];
+    for (k in b) o[k] = b[k];
+    return o;
+  }
+
+  /* 处理一遍：opt = {thr, inv, den, wt, rot, trim, auto, up} */
+  function processCore(o) {
+    var wc = toWork(sourceImg, o.up || 1);
+    var b = binarize(wc, o), m = b.m, W = b.W, H = b.H, i, removed = 0;
+    if (o.den > 0) { var ds = despeckle(m, W, H, o.den); m = ds.m; removed = ds.removed; }
+    if (o.wt > 0) for (i = 0; i < o.wt; i++) m = morph(m, W, H, true);
+    else if (o.wt < 0) for (i = 0; i < -o.wt; i++) m = morph(m, W, H, false);
     var mc = maskToCanvas(m, W, H);
-    if (state.rot) { mc = rotateCanvas(mc, state.rot); var r = canvasToMask(mc); m = r.m; W = r.W; H = r.H; }
+    if (o.rot) { mc = rotateCanvas(mc, o.rot); var r = canvasToMask(mc); m = r.m; W = r.W; H = r.H; }
     var bb = bbox(m, W, H);
     if (!bb) return null;
-    if (state.trim > 0) {
-      var t = state.trim / 100, dx = Math.round(bb.w * t), dy = Math.round(bb.h * t);
+    if (o.trim > 0) {
+      var t = o.trim / 100, dx = Math.round(bb.w * t), dy = Math.round(bb.h * t);
       var nm = new Uint8Array(W * H);
       for (var y = bb.y0 + dy; y <= bb.y1 - dy; y++)
         for (var x = bb.x0 + dx; x <= bb.x1 - dx; x++) nm[y * W + x] = m[y * W + x];
@@ -330,7 +445,66 @@
     var alpha = normalizeMask(m, W, H, bb);
     var d = encode(alpha, bb.w, bb.h);
     d.mask = m; d.W = W; d.H = H; d.bb = bb; d.borderLum = b.borderLum;
+    d.diag = {
+      W: W, H: H, thr: b.thr, otsu: b.otsu, bgLum: b.bgLum, inv: !!o.inv,
+      stretched: b.stretched, removed: removed, auto: !!o.auto, den: o.den, up: o.up || 1
+    };
     return d;
+  }
+
+  /* 指纹质量打分：墨量落在合理区间、长宽比不极端、包围盒没吃掉整幅 */
+  function qualityScore(d) {
+    if (!d) return -1e6;
+    var ink = d.ink / 255, s = 0;
+    if (ink < 0.02) s -= 4 + (0.02 - ink) * 120;
+    else if (ink > 0.5) s -= 3 + (ink - 0.5) * 8;
+    else s += 1 - Math.abs(ink - 0.12) * 3;
+    if (d.ar < 0.28 || d.ar > 3.6) s -= 1.2; else s += 0.35;
+    if (d.bb && d.W && d.bb.w / d.W > 0.97 && d.bb.h / d.H > 0.97) s -= 2.2;
+    return s;
+  }
+
+  function process() {
+    if (!sourceImg) return null;
+    var base = {
+      thr: state.thr, inv: state.inv, den: state.den, wt: state.wt,
+      rot: state.rot, trim: state.trim, auto: state.auto, up: 1
+    };
+    var b0 = processCore(base);
+    /* 只有「硬失败」才兜底：完全没有墨、或墨把背景吃掉（多半是反相/阈值不对）。
+       正常出墨时严格按用户当前参数走，保证与离线索引的指纹口径一致——
+       过度自动补救会让明明正常的图反而查不准。 */
+    var ir = b0 ? b0.ink / 255 : 0;
+    if (b0 && ir >= 0.02 && ir <= 0.60) return b0;
+
+    var cands = [base];
+    if (state.invAuto) cands.push(mix(base, { inv: !base.inv }));
+    if (base.den > 0) cands.push(mix(base, { den: 0 }));
+    cands.push(mix(base, { up: 2 }));
+    if (base.den > 0 && state.invAuto) cands.push(mix(base, { den: 0, inv: !base.inv, up: 2 }));
+
+    var best = b0, bestS = b0 ? qualityScore(b0) : -1e6, bi = 0, i, d, sc, ok;
+    for (i = 1; i < cands.length; i++) {
+      d = processCore(cands[i]);
+      if (!d) continue;
+      var k = d.ink / 255;
+      ok = k >= 0.02 && k <= 0.60;          /* 只接受「确实出墨且没吃满」的方案 */
+      sc = qualityScore(d) + (ok ? 2 : 0);  /* 合格方案优先于不合格方案 */
+      if (sc > bestS) { bestS = sc; best = d; bi = i; }
+      if (ok && k >= 0.06 && k <= 0.32) break;
+    }
+    if (best && bi > 0) {
+      var c = cands[bi], fix = [];
+      if (c.inv !== state.inv) {
+        state.inv = c.inv;
+        if ($("inv")) $("inv").checked = c.inv;
+        fix.push(c.inv ? "自動反相" : "自動取消反相");
+      }
+      if (c.den !== state.den) fix.push("已跳過去噪");
+      if ((c.up || 1) !== 1) fix.push("加大放大");
+      if (best.diag) best.diag.fixed = fix.join(" · ");
+    }
+    return best;
   }
 
   /* 回归自检用：暴露当前查询指纹与某层某字的索引指纹 */
@@ -432,6 +606,37 @@
     $("pvmask").textContent = d.W + "×" + d.H;
     $("stpx").textContent = cnt > 9999 ? (cnt / 1000).toFixed(1) + "k" : cnt;
   }
+  /* 诊断行：把「为什么识别不到墨迹」直接写出来 —— 来源尺寸、实际工作分辨率、
+     倍率、生效阈值是自动还是手动、是否做过对比拉伸、清掉多少斑点、自动兜底做了什么 */
+  function renderDiag(d) {
+    var e = $("qdiag"); if (!e) return;
+    if ($("vthr")) $("vthr").textContent = state.auto ? "自動" : state.thr;
+    var src = sourceImg ? (sourceImg.naturalWidth || sourceImg.width) : 0;
+    var srcH = sourceImg ? (sourceImg.naturalHeight || sourceImg.height) : 0;
+    if (!d) {
+      e.className = "qdiag warn";
+      e.textContent = src
+        ? "來源 " + src + "×" + srcH + " · 二值化後沒有墨跡（閾值 " +
+          (state.auto ? "自動" : state.thr) + "）· 試試切換反相、調閾值，或按「重設參數」"
+        : "尚未輸入圖像";
+      return;
+    }
+    var g = d.diag || {}, bits = [];
+    if (src) bits.push("來源 " + src + "×" + srcH);
+    if (g.W) {
+      var base = Math.max(src, srcH) || 1, k = g.W / base;
+      bits.push("工作 " + g.W + "×" + g.H + (k > 1.05 ? "（放大 " + k.toFixed(1) + "×）" :
+               k < 0.95 ? "（縮至 " + (k * 100).toFixed(0) + "%）" : ""));
+    }
+    bits.push("閾值 " + (g.auto ? "自動 " : "") + g.thr);
+    if (g.stretched) bits.push("對比拉伸");
+    if (g.removed) bits.push("清斑點 −" + g.removed);
+    if (g.fixed) bits.push(g.fixed);
+    if (src && Math.max(src, srcH) < 32) bits.push("圖幅過小，建議 ≥48×48");
+    e.className = "qdiag" + (qualityScore(d) < 0.9 ? " warn" : "");
+    e.textContent = bits.join(" · ");
+  }
+
   function renderPreview() {
     var t0 = performance.now();
     /* fpOverride：从字形查询页带字过来时，直接用索引里的原始指纹，
@@ -449,6 +654,7 @@
       var x = $("cvfp").getContext("2d"); x.fillStyle = "#fffdf8"; x.fillRect(0, 0, 128, 128);
       $("pvfp").textContent = "無墨"; $("stink").textContent = "—"; $("star").textContent = "—"; $("stpx").textContent = "0";
     }
+    renderDiag(qd);
     return performance.now() - t0;
   }
   function simClass(s) { return s >= 0.9 ? "hi" : s >= 0.72 ? "mid" : "lo"; }
@@ -467,7 +673,7 @@
       e.innerHTML = '<div class="big">空</div><p>' +
         (state.all.length ? "此篩選下沒有候選。" : "沒有得到指紋——掩膜裡沒有墨。") + "</p>" +
         "<small>" + (state.all.length ? "把「候選篩選」改回全部，或放寬檢索圖層。" :
-          "試著調整二值化閾值、切換反相，或關掉去噪。") + "</small>";
+          "已自動試過反相與跳過去噪。仍無墨跡時：換更清晰的圖、提高掃描分辨率，或手動調閾值。") + "</small>";
       host.appendChild(e); return;
     }
     var frag = document.createDocumentFragment();
@@ -522,7 +728,7 @@
     $("bulkyes").disabled = !n; $("bulkno").disabled = !n;
   }
 
-  var DEFAULTS = { thr: 128, inv: false, den: 1, wt: 0, rot: 0, trim: 0, wgt: 70 };
+  var DEFAULTS = { thr: 128, auto: true, invAuto: true, inv: false, den: 1, wt: 0, rot: 0, trim: 0, wgt: 70 };
   function renderCfgFlag() {
     var off = [];
     if (state.thr !== DEFAULTS.thr) off.push("閾值");
@@ -532,6 +738,8 @@
     if (state.rot !== DEFAULTS.rot) off.push("旋轉");
     if (state.trim !== DEFAULTS.trim) off.push("裁邊");
     if (state.wgt !== DEFAULTS.wgt) off.push("權重");
+    if (!state.auto) off.push("手動閾值");
+    if (!state.invAuto) off.push("手動反相");
     var e = $("cfgflag"); if (!e) return;
     e.textContent = off.length ? "已調：" + off.join("·") : "即時生效";
     e.className = off.length ? "hint off" : "hint";
@@ -832,9 +1040,12 @@
       Array.prototype.forEach.call($("samples").children, function (x) { x.classList.remove("on"); });
       $("drawbox").classList.remove("show"); $("bdraw").classList.remove("on");
       if (autoInv) {
-        var wc = toWork(im), b = binarize(wc);
-        var want = b.borderLum > 128;
+        /* 紧裁切的单字图没有可靠边框，用直方图众数（背景）判反相：
+           背景亮 → 墨是暗的 → 需要反相。 */
+        var wc = toWork(im, 1), b = binarize(wc, { auto: true, inv: false, thr: 128 });
+        var want = b.bgLum > 128;
         if (want !== state.inv) { state.inv = want; $("inv").checked = want; }
+        state.invAuto = true;
       }
       run(0);
     };
@@ -858,6 +1069,13 @@
     });
   }
   function bind() {
+    $("thr").addEventListener("input", function () {
+      if (state.auto) {
+        state.auto = false;
+        if ($("autothr")) $("autothr").checked = false;
+        renderCfgFlag();
+      }
+    });
     bindRange("thr", "thr", function (v) { return v; }, "vthr");
     bindRange("den", "den", function (v) { return v; }, "vden");
     bindRange("wt", "wt", function (v) { return v > 0 ? "+" + v : v; }, "vwt");
@@ -866,7 +1084,15 @@
     bindRange("wgt", "wgt", function (v) { return v; }, "vw");
 
     $("inv").checked = state.inv;
-    $("inv").addEventListener("change", function () { state.inv = this.checked; saveCfg(); run(0); });
+    $("inv").addEventListener("change", function () {
+      state.inv = this.checked; state.invAuto = false; saveCfg(); renderCfgFlag(); run(0);
+    });
+    if ($("autothr")) {
+      $("autothr").checked = state.auto;
+      $("autothr").addEventListener("change", function () {
+        state.auto = this.checked; saveCfg(); renderCfgFlag(); run(0);
+      });
+    }
 
     $("nminus").onclick = function () { state.num = clamp(state.num - 12, 12, 120); $("vnum").textContent = state.num; saveCfg(); renderResults(); };
     $("nplus").onclick = function () { state.num = clamp(state.num + 12, 12, 120); $("vnum").textContent = state.num; saveCfg(); renderResults(); };
@@ -884,11 +1110,13 @@
     });
 
     $("reset").onclick = function () {
-      state.thr = 128; state.inv = false; state.den = 1; state.wt = 0; state.rot = 0;
+      state.thr = 128; state.auto = true; state.invAuto = true;
+      state.inv = false; state.den = 1; state.wt = 0; state.rot = 0;
       state.trim = 0; state.wgt = 70;
+      if ($("autothr")) $("autothr").checked = true;
       ["thr", "den", "wt", "rot", "trim", "wgt"].forEach(function (k) { $(k).value = state[k]; });
       $("inv").checked = false;
-      $("vthr").textContent = 128; $("vden").textContent = 1; $("vwt").textContent = 0;
+      $("vthr").textContent = "自動"; $("vden").textContent = 1; $("vwt").textContent = 0;
       $("vrot").textContent = "0°"; $("vtrim").textContent = "0%"; $("vw").textContent = 70;
       saveCfg(); run(0); toast("參數已重設");
     };
@@ -1006,9 +1234,11 @@
     try {
       var c = JSON.parse(localStorage.getItem(LS_CFG) || "null");
       if (c) {
-        ["thr", "inv", "den", "wt", "rot", "trim", "wgt", "num", "sort", "view"].forEach(function (k) {
+        ["thr", "auto", "invAuto", "inv", "den", "wt", "rot", "trim", "wgt", "num", "sort", "view"].forEach(function (k) {
           if (c[k] != null) state[k] = c[k];
         });
+        /* 老版本只存了 thr：调过阈值的人继续用手动阈值，不要被自动覆盖 */
+        if (c.auto == null && c.thr != null && c.thr !== DEFAULTS.thr) state.auto = false;
         if (Array.isArray(c.layers) && c.layers.length) {
           var valid = c.layers.filter(function (l) { return SHAPE_INDEX.some(function (s) { return s.id === l; }); });
           if (valid.length) state.layers = valid;

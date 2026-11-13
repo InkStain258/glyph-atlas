@@ -427,7 +427,17 @@
   function processCore(o) {
     var wc = toWork(sourceImg, o.up || 1);
     var b = binarize(wc, o), m = b.m, W = b.W, H = b.H, i, removed = 0;
-    if (o.den > 0) { var ds = despeckle(m, W, H, o.den); m = ds.m; removed = ds.removed; }
+    if (o.den > 0) {
+      /* 先去孤立斑点（按面积删，细笔不受损），再试 3x3 开运算磨掉反锯齿灰边。
+         开运算会整体削细 1px，低分辨率图的细笔可能被削断——所以做墨量守卫：
+         若开运算吃掉超过 45% 的墨，判定为「削过头」，保留未开运算的掩膜。 */
+      var ds = despeckle(m, W, H, o.den); m = ds.m; removed = ds.removed;
+      var before = 0; for (i = 0; i < m.length; i++) if (m[i]) before++;
+      var op = m;
+      for (i = 0; i < o.den; i++) { op = morph(op, W, H, false); op = morph(op, W, H, true); }
+      var after = 0; for (i = 0; i < op.length; i++) if (op[i]) after++;
+      if (before && after >= before * 0.55) m = op;
+    }
     if (o.wt > 0) for (i = 0; i < o.wt; i++) m = morph(m, W, H, true);
     else if (o.wt < 0) for (i = 0; i < -o.wt; i++) m = morph(m, W, H, false);
     var mc = maskToCanvas(m, W, H);

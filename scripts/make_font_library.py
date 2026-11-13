@@ -164,6 +164,7 @@ LICENSE_FILES = {
     "Arphic-PL-1.0": "Arphic-PL-1.0.txt",
     "GPL-3.0+FE": "GPL-3.0+FE.txt",
     "GPL-2.0": "GPL-2.0.txt",
+    "PD": "PD.txt",
     "PROJECT-GRANT": "PROJECT-GRANT.txt",
 }
 
@@ -241,7 +242,7 @@ def ancient_font_notice(aid, meta, ldata):
         "",
         "## 这是什么",
         "",
-        "%s。字体文件放在本目录，供「歷代字形查詢」工具做本地字形比对。" % meta["style_detail"],
+        "%s。字体文件放在本目录，供「識印」歷代字形查詢平台工具做本地字形比对。" % meta["style_detail"],
         "",
         "## 许可",
         "",
@@ -356,7 +357,7 @@ def ancient_notice(aid, meta, ldata, counts):
     lines.append("# %s · %s\n" % (meta["name_zh"], meta["name_en"]))
     lines.append("## 这是什么\n")
     lines.append("由 [hanzi-glyphs-svg](%s) 的 `%s` 层 SVG 字形编译成的 TrueType 字体，"
-                 "供「歷代字形查詢」工具做本地字形比对。\n"
+                 "供「識印」歷代字形查詢平台工具做本地字形比对。\n"
                  % (UP_STREAM, meta["up_layer"]))
     lines.append("## 数据集来源\n")
     lines.append("- 上游仓库：%s" % UP_STREAM)
@@ -423,7 +424,7 @@ def modern_notice(f):
 
 def quarantine_notice(f, reason, text):
     lines = ["# %s · 未采用\n" % f.get("name_zh", f["id"]),
-             "本字库**不进入**「歷代字形查詢」工具，也不参与任何构建产物。\n",
+             "本字库**不进入**「識印」歷代字形查詢平台工具，也不参与任何构建产物。\n",
              "## 原因\n", text, "",
              "## 原始信息\n",
              "- 字体：%s（%s）" % (f.get("name_zh", ""), f.get("name_en", "")),

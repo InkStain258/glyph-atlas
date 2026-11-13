@@ -138,12 +138,12 @@ def main():
     n = 0
     for r, d, fs in os.walk(OUT):
         parts = r.split(os.sep)
-        if ".git" in parts or "src" in parts:
+        if ".git" in parts or "src" in parts or "dist" in parts:
             continue
         for x in fs:
             total += os.path.getsize(os.path.join(r, x))
             n += 1
-    print("站点已同步到 %s：%.1f MB / %d 个文件（不含 .git）" % (OUT, total / 1048576, n))
+    print("站点已同步到 %s：%.1f MB / %d 个文件（不含 .git 与 dist）" % (OUT, total / 1048576, n))
 
 if __name__ == "__main__":
     main()

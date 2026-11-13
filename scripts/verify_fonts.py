@@ -711,8 +711,12 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
         else:
             if modern.exists():
                 cands = sorted(p for p in modern.iterdir() if p.suffix.lower() in FONT_SUFFIXES)
+        if not cands:
+            quar = ROOT / "fonts" / "quarantine" / folder.name
+            if quar.exists():
+                cands = sorted(p for p in quar.iterdir() if p.suffix.lower() in FONT_SUFFIXES)
     if not cands:
-        problems.append(f"incoming/{folder.name} 缺少字体文件（incoming 与 fonts/modern 均未找到）")
+        problems.append(f"incoming/{folder.name} 缺少字体文件（incoming / fonts/modern / fonts/quarantine 均未找到）")
         return None
     path = cands[0]
     lic_name = meta.get("license_text_file", "LICENSE.txt")
@@ -732,7 +736,7 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
     detected, _ = classify_license(names)
     declared = meta.get("license_spdx", "UNKNOWN")
 
-    status_declared = meta.get("status", "shipped")
+    status_declared = meta.get("status") or ("quarantine" if (meta.get("shipped") is False or meta.get("kind") == "quarantine") else "shipped")
     if declared not in WHITELIST and status_declared != "quarantine":
         problems.append(f"incoming/{folder.name} 声明许可 {declared} 不在白名单，必须隔离")
     if (detected == "PROPRIETARY" or detected in ("CC-BY-ND-3.0", "IPA-1.0")) and status_declared != "quarantine":
@@ -746,7 +750,7 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
         problems.append(f"incoming/{folder.name} 的 license.json 记 GB2312 一级 {meta['gb2312_l1']}，实测 {l1}")
     rec = {
         "id": meta["id"],
-        "status": meta.get("status", "shipped"),
+        "status": status_declared,
         "name_zh": meta["name_zh"],
         "name_en": meta["name_en"],
         "era": meta["era"],
@@ -795,7 +799,7 @@ def build_incoming_record(folder: Path, woff2_cache: Path, measure_woff2: bool, 
         "gb2312_l1": l1,
         "gb2312_l2": l2,
         "gbk": gbk_n,
-        "supplemental": l1 < 1500,
+        "supplemental": meta.get("supplemental", l1 < 1500),
         "name_table_license": detected,
     }
     if l1 < 1500:

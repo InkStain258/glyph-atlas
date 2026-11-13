@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>印章考據 · 識印 歷代字形查詢平台</title>
+<meta name="description" content="上傳整幅書影或印面，自動定位朱印、按字格拆字，再逐字反查篆形候選。純前端，圖像不出本機。">
+<link rel="stylesheet" href="shape.css">
+<link rel="stylesheet" href="seal.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23d93a2b'/%3E%3Ctext x='16' y='23' font-size='19' text-anchor='middle' fill='%23fff' font-family='serif'%3E印%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<div class="bg" aria-hidden="true">
+  <div class="aur a1"></div><div class="aur a2"></div><div class="aur a3"></div>
+  <div class="grain"></div><div class="vign"></div>
+</div>
+
+<nav class="nav">
+  <a class="brand" href="index.html">
+    <span class="stamp">印</span>
+    <span><h1>印章考據</h1></span>
+  </a>
+  <span class="sub">識印 · SEAL&nbsp;DETECT</span>
+  <div class="links">
+    <a href="index.html">字形查詢</a>
+    <a href="index.html#parts">部件檢索</a>
+    <a href="shape.html">以形查字</a>
+    <a href="seal.html" class="here">印章考據</a>
+    <a href="licenses.html">字體與版權</a>
+  </div>
+  <span class="live"><i class="dot"></i><span id="navstat">就緒</span></span>
+</nav>
+
+<div class="wrap">
+<div class="deck">
+
+  <aside class="rail">
+
+    <section class="card">
+      <header><i class="idx">1</i><h2>書影來源</h2><span class="hint" id="srcname">—</span></header>
+      <div class="body">
+        <label class="drop" id="drop">
+          <input type="file" id="file" accept="image/*">
+          <div>
+            <div class="di">印</div>
+            <p>拖入整幅書影、卷軸，或單枚印面</p>
+            <small>亦可 Ctrl+V 貼上 · 圖像只在本機處理，不上傳</small>
+          </div>
+        </label>
+        <div class="srcrow">
+          <button class="btn wide" id="bpaste">⧉ 讀剪貼簿</button>
+        </div>
+        <div class="samples" id="samples"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><i class="idx">2</i><h2>朱印檢測</h2><span class="hint" id="dcount">—</span></header>
+      <div class="body">
+        <div class="ctl"><div class="lab"><span>色彩容差</span><b id="vtol">35</b></div>
+          <input type="range" id="tol" min="10" max="70" value="35"></div>
+        <div class="ctl"><div class="lab"><span>最低飽和</span><b id="vsat">0.28</b></div>
+          <input type="range" id="sat" min="10" max="60" value="28"></div>
+        <div class="ctl"><div class="lab"><span>最小印面（原圖 px）</span><b id="vmin">40</b></div>
+          <input type="range" id="min" min="16" max="200" value="40"></div>
+        <div class="ctl"><div class="lab"><span>最小密度</span><b id="vden">0.10</b></div>
+          <input type="range" id="den" min="0" max="60" value="10"></div>
+        <label class="sw sm"><input type="checkbox" id="whole">整幅即一枚印（跳過自動定位）</label>
+        <div class="acts"><button class="btn wide" id="run">重新檢測</button></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <header><i class="idx">3</i><h2>檢出印面</h2><span class="hint" id="listhint">尚未檢測</span></header>
+      <div class="body">
+        <div class="sealList" id="sealList"><div class="empty2">上傳書影後自動列出</div></div>
+      </div>
+    </section>
+
+  </aside>
+
+  <main class="main">
+    <div class="hero">
+      <div class="kick">SEAL · SEGMENT · LOOKUP</div>
+      <h2>整幅書影裡，先把印找出來</h2>
+      <p>朱色印章與紙底色相差較遠，可按色相與飽和度分離。檢出後依印面排版切成字格，逐格取指紋，在篆書圖層裡比對候選字。</p>
+      <div class="tags">
+        <span>色相分離</span><span>連通域</span><span>XY 切分</span><span>指紋 146B</span><span>不出本機</span>
+      </div>
+    </div>
+
+    <div class="stagebar">
+      <span class="st" id="stg">等待書影</span>
+      <span class="grow"></span>
+      <label class="sw"><input type="checkbox" id="showbox" checked>顯示檢測框</label>
+      <button class="btn" id="zoomin">放大</button>
+      <button class="btn" id="zoomout">縮小</button>
+    </div>
+
+    <div class="canvaswrap" id="canvaswrap">
+      <canvas id="stage"></canvas>
+      <div class="ph" id="ph"><div class="big">印</div><p>拖入書影，或按上方「讀剪貼簿」</p><small>整幅長卷亦可；純前端處理，像素不離開本機</small></div>
+    </div>
+
+    <section class="card split" id="splitCard" hidden>
+      <header><i class="idx">4</i><h2>拆字與查形</h2><span class="hint" id="splitHint">—</span></header>
+      <div class="body">
+        <div class="segbar">
+          <span>字格方向</span>
+          <select id="order">
+            <option value="rc">右上起，直行右至左</option>
+            <option value="cr">右上起，橫行右至左</option>
+            <option value="lt">左上起，橫行左至右</option>
+          </select>
+          <label class="sw sm"><input type="checkbox" id="autosplit" checked>自動切分</label>
+          <span class="grow"></span>
+          <span class="hint2" id="cellhint"></span>
+        </div>
+        <div class="slyr" id="slayers"></div>
+        <div class="sealprev" id="sealprev"></div>
+        <div class="cells" id="cells"></div>
+      </div>
+    </section>
+  </main>
+
+</div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script src="data/layers.js"></script>
+<script src="data/seal-samples.js"></script>
+<script src="data/shape/index.js"></script>
+<script src="data/variants.js"></script>
+<script src="fp-core.js"></script>
+<script src="seal.js"></script>
+</body>
+</html>

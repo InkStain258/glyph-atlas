@@ -72,6 +72,7 @@ SHORT = {
     "zcoolxiaowei": "站酷小薇体", "chiron-sung-hk": "昭源宋体",
     "fandol-fang": "Fandol 仿宋", "fandol-hei": "Fandol 黑",
     "fandol-kai": "Fandol 楷", "fandol-song": "Fandol 宋", "kleeone": "Klee One",
+    "yunzhuan-duren": "云篆度人經", "liushuwenmai-xiaozhuan": "六書文脈篆",
 }
 
 

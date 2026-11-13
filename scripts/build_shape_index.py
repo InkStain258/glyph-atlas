@@ -44,6 +44,10 @@ ANCIENT = [
     ("beishida", "說文小篆", 6.5, "說"),
     ("shuowen-seal-kaiyuan", "開元小篆", 6.6, "開"),
     ("clerical", "隸書",     7, "隸"),
+    ("grassseal", "草篆",    8, "草"),
+    ("lxgwseal",  "霞鶩篆書", 8.1, "鶩"),
+    ("liushuwenmai-xiaozhuan", "六書文脈篆", 8.2, "文"),
+    ("yunzhuan-duren", "雲篆度人經", 8.3, "雲"),
 ]
 
 

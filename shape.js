@@ -210,7 +210,7 @@
     var x = c.getContext("2d"), im = x.createImageData(W, H), d = im.data;
     for (var i = 0; i < m.length; i++) {
       var o = i * 4, v = m[i] ? 255 : 0;
-      d[o] = d[o + 1] = d[o + 2] = 255; d[o + 3] = v;
+      d[o] = 26; d[o + 1] = 24; d[o + 2] = 21; d[o + 3] = v;
     }
     x.putImageData(im, 0, 0);
     return c;
@@ -400,7 +400,7 @@
   }
 
   /* ================= 渲染 ================= */
-  var RAMP = [[11, 10, 9], [40, 32, 26], [79, 184, 148], [232, 180, 76], [255, 95, 69], [244, 237, 224]];
+  var RAMP = [[255, 253, 248], [236, 228, 211], [201, 167, 110], [158, 43, 30], [125, 31, 20], [26, 24, 21]];
   function rampColor(v) {
     var t = clamp(v / 15, 0, 1) * (RAMP.length - 1), i = Math.floor(t), f = t - i;
     var a = RAMP[i], b = RAMP[Math.min(RAMP.length - 1, i + 1)];
@@ -409,7 +409,7 @@
   function drawFP(cv, grid) {
     var x = cv.getContext("2d"), S = cv.width / G;
     x.clearRect(0, 0, cv.width, cv.height);
-    x.fillStyle = "#0a0908"; x.fillRect(0, 0, cv.width, cv.height);
+    x.fillStyle = "#fffdf8"; x.fillRect(0, 0, cv.width, cv.height);
     for (var gy = 0; gy < G; gy++) for (var gx = 0; gx < G; gx++) {
       var v = grid[gy * G + gx];
       if (!v) continue;
@@ -419,13 +419,13 @@
   }
   function drawMaskPreview(d) {
     var cv = $("cvmask"), x = cv.getContext("2d");
-    x.fillStyle = "#000"; x.fillRect(0, 0, cv.width, cv.height);
+    x.fillStyle = "#fffdf8"; x.fillRect(0, 0, cv.width, cv.height);
     if (!d) { $("pvmask").textContent = "—"; return; }
     var c = maskToCanvas(d.mask, d.W, d.H);
     var s = Math.min(cv.width / d.W, cv.height / d.H);
     var w = d.W * s, h = d.H * s;
     x.drawImage(c, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
-    x.strokeStyle = "rgba(217,58,43,.85)"; x.lineWidth = 1;
+    x.strokeStyle = "rgba(158,43,30,.62)"; x.lineWidth = 1;
     var bb = d.bb;
     x.strokeRect((cv.width - w) / 2 + bb.x0 * s, (cv.height - h) / 2 + bb.y0 * s, bb.w * s, bb.h * s);
     var cnt = 0; for (var i = 0; i < d.mask.length; i++) cnt += d.mask[i];
@@ -446,7 +446,7 @@
       $("stink").textContent = (qd.ink / 255 * 100).toFixed(1);
       $("star").textContent = qd.ar.toFixed(2);
     } else {
-      var x = $("cvfp").getContext("2d"); x.fillStyle = "#0a0908"; x.fillRect(0, 0, 128, 128);
+      var x = $("cvfp").getContext("2d"); x.fillStyle = "#fffdf8"; x.fillRect(0, 0, 128, 128);
       $("pvfp").textContent = "無墨"; $("stink").textContent = "—"; $("star").textContent = "—"; $("stpx").textContent = "0";
     }
     return performance.now() - t0;

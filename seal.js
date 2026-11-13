@@ -24,7 +24,8 @@
     order: "rc", autoSplit: true,
     cur: null,                 // 當前印面的解算結果
     cells: [],
-    layers: ["seal", "beishida", "shuowen-seal-kaiyuan", "liushuwenmai-xiaozhuan", "grassseal"],
+    layers: ["seal", "beishida", "shuowen-seal-kaiyuan", "liushuwenmai-xiaozhuan",
+             "jingfeng-zhongshan-seal", "grassseal"],
     num: 6,
     busy: false
   };
@@ -680,7 +681,8 @@
     var host = $("slayers"); host.innerHTML = "";
     var idx = window.GA_SHAPE_INDEX || [];
     var want = ["seal", "beishida", "shuowen-seal-kaiyuan", "liushuwenmai-xiaozhuan",
-                "yunzhuan-duren", "grassseal", "clerical", "bronze", "oracle"];
+                "jingfeng-zhongshan-seal", "yunzhuan-duren", "grassseal",
+                "clerical", "bronze", "oracle"];
     want.forEach(function (lid) {
       var it = idx.filter(function (x) { return x.id === lid; })[0];
       if (!it) return;

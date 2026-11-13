@@ -48,6 +48,7 @@ ANCIENT = [
     ("lxgwseal",  "霞鶩篆書", 8.1, "鶩"),
     ("liushuwenmai-xiaozhuan", "六書文脈篆", 8.2, "文"),
     ("yunzhuan-duren", "雲篆度人經", 8.3, "雲"),
+    ("jingfeng-zhongshan-seal", "敬峰中山篆", 8.4, "敬"),
 ]
 
 

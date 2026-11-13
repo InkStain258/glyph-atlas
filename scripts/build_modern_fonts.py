@@ -73,6 +73,7 @@ SHORT = {
     "fandol-fang": "Fandol 仿宋", "fandol-hei": "Fandol 黑",
     "fandol-kai": "Fandol 楷", "fandol-song": "Fandol 宋", "kleeone": "Klee One",
     "yunzhuan-duren": "云篆度人經", "liushuwenmai-xiaozhuan": "六書文脈篆",
+    "jingfeng-zhongshan-seal": "敬峰中山篆",
 }
 
 
